@@ -1,21 +1,30 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from openai import AzureOpenAI
 
-app = Flask(__name__, static_folder="static", static_url_path="/static")
+# Explicit template folder to avoid any ambiguity in App Service runtime
+app = Flask(__name__, template_folder="templates")
 
 def get_client():
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     api_key = os.getenv("AZURE_OPENAI_API_KEY")
-    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-06-01")
+    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+
     if not endpoint or not api_key:
         return None, "Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY"
+
     client = AzureOpenAI(
         azure_endpoint=endpoint,
         api_key=api_key,
         api_version=api_version,
     )
     return client, None
+
+# ✅ Bulletproof static serving (works even with run-from-package / Oryx mounts)
+@app.get("/static/<path:filename>")
+def static_files(filename):
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    return send_from_directory(static_dir, filename)
 
 @app.get("/")
 def home():
@@ -27,11 +36,10 @@ def chat_page():
 
 @app.get("/admin")
 def admin_page():
-    # show status WITHOUT revealing secrets
     status = {
         "AZURE_OPENAI_ENDPOINT": "✅ set" if os.getenv("AZURE_OPENAI_ENDPOINT") else "❌ missing",
         "AZURE_OPENAI_API_KEY": "✅ set" if os.getenv("AZURE_OPENAI_API_KEY") else "❌ missing",
-        "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION") or "(default: 2024-06-01)",
+        "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION") or "(default: 2024-12-01-preview)",
         "AZURE_OPENAI_DEPLOYMENT": "✅ set" if os.getenv("AZURE_OPENAI_DEPLOYMENT") else "❌ missing",
     }
     return render_template("admin.html", status=status)
@@ -57,17 +65,19 @@ def api_chat():
 
     try:
         resp = client.chat.completions.create(
-            model=deployment,  # IMPORTANT: this is your Azure deployment name, not "gpt-4o"
+            model=deployment,  # Azure deployment NAME (e.g., "gpt-4o")
             messages=[
                 {"role": "system", "content": "You are a helpful instructor assistant for the CPL course."},
                 {"role": "user", "content": user_message},
             ],
             temperature=0.3,
         )
-        answer = resp.choices[0].message.content or ""
+
+        answer = (resp.choices[0].message.content or "").strip()
         return jsonify({"answer": answer})
+
     except Exception as e:
-        # log safe error
+        # Logs in App Service Log Stream (without exposing secrets)
         app.logger.exception("Azure OpenAI call failed")
         return jsonify({"error": f"Azure OpenAI call failed: {type(e).__name__}"}), 500
 
