@@ -16,15 +16,19 @@ document.getElementById("send").addEventListener("click", async () => {
       body: JSON.stringify({ message: msg }),
     });
 
-    const data = await res.json();
+    const text = await res.text();   // read raw body first
+    let data = null;
+    try { data = JSON.parse(text); } catch (_) {}
 
     if (!res.ok) {
-      out.textContent = data.error || "Request failed";
+      out.textContent = data?.error
+        ? `Error (${res.status}): ${data.error}`
+        : `Error (${res.status}): ${text}`;
       return;
     }
 
-    out.textContent = data.answer || "";
+    out.textContent = data?.answer ?? text;
   } catch (e) {
-    out.textContent = "Network error";
+    out.textContent = `Network error: ${e}`;
   }
 });
