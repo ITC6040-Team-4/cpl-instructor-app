@@ -44,14 +44,16 @@
 
       <section class="card" aria-label="Chat response">
         <div class="panelTitle">
-          <h2>Response</h2>
-          <button id="copy" class="smallbtn" type="button">Copy</button>
+          <h2>Response History</h2>
+          <button id="copy" class="smallbtn" type="button">Copy All</button>
         </div>
-        <pre id="out">Your answer will show up here…</pre>
+        <div id="chatHistory" class="chat-history">
+          <div class="msg-bubble msg-system">Session started. Your conversation history will appear here.</div>
+        </div>
       </section>
     </section>
   </main>
 
-  <script src="/static/chat.js?v=3.0"></script>
+  <script src="/static/chat.js?v=4.0"></script>
 </body>
 </html>

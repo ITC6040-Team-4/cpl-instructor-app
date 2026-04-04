@@ -1,11 +1,10 @@
 const msgEl = document.getElementById("msg");
-const outEl = document.getElementById("out");
+const chatHistory = document.getElementById("chatHistory"); // NEW DOM Target
 const sendBtn = document.getElementById("send");
 const clearBtn = document.getElementById("clear");
 const copyBtn = document.getElementById("copy");
 const statusText = document.getElementById("statusText");
 
-// File upload elements
 const fileUpload = document.getElementById("fileUpload");
 const attachBtn = document.getElementById("attachBtn");
 const filePreview = document.getElementById("filePreview");
@@ -19,16 +18,25 @@ function setBusy(isBusy) {
   msgEl.disabled = isBusy;
   copyBtn.disabled = isBusy;
   clearBtn.disabled = isBusy;
-  attachBtn.disabled = isBusy; // Lock attach button while thinking
+  attachBtn.disabled = isBusy;
   setStatus(isBusy ? "Thinking..." : "Ready");
 }
 
-// 1. TRIGGER THE HIDDEN FILE INPUT WHEN ATTACH IS CLICKED
+// NEW: Helper function to build chat bubbles
+function appendMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = `msg-bubble msg-${role}`;
+  div.textContent = text;
+  chatHistory.appendChild(div);
+  
+  // Auto-scroll to the bottom of the chat history
+  chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
 attachBtn.addEventListener("click", () => {
   fileUpload.click();
 });
 
-// 2. SHOW THE FILENAME WHEN A FILE IS SELECTED
 fileUpload.addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) {
@@ -39,20 +47,31 @@ fileUpload.addEventListener("change", (e) => {
   filePreview.style.color = "var(--accent2)";
 });
 
-// 3. SEND THE MESSAGE AND FILE TO THE BACKEND
 async function sendMessage() {
   const msg = msgEl.value.trim();
   const file = fileUpload.files[0];
   
   if (!msg && !file) {
-    outEl.textContent = "Please type a message or attach a file first.";
-    outEl.classList.add("error");
+    alert("Please type a message or attach a file first.");
     return;
   }
 
+  // 1. Show the user's message in the UI immediately
+  let displayMsg = msg;
+  if (file) {
+    displayMsg = `📎 [Attached File: ${file.name}]\n${msg}`;
+  }
+  appendMessage("user", displayMsg);
+
   setBusy(true);
-  outEl.textContent = "Thinking...";
-  outEl.classList.remove("error");
+
+  // Show a temporary "Thinking..." bubble
+  const thinkingDiv = document.createElement("div");
+  thinkingDiv.className = "msg-bubble msg-system";
+  thinkingDiv.id = "thinkingIndicator";
+  thinkingDiv.textContent = "AI is evaluating...";
+  chatHistory.appendChild(thinkingDiv);
+  chatHistory.scrollTop = chatHistory.scrollHeight;
 
   const formData = new FormData();
   formData.append("message", msg);
@@ -63,34 +82,38 @@ async function sendMessage() {
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
-      body: formData, // Sending as FormData so Flask can read the file
+      body: formData,
     });
 
     const text = await res.text();
     let data = null;
     try { data = JSON.parse(text); } catch (_) {}
 
+    // Remove the thinking bubble
+    const tInd = document.getElementById("thinkingIndicator");
+    if(tInd) tInd.remove();
+
     if (!res.ok) {
-      outEl.textContent = data?.error ? `Error (${res.status}): ${data.error}` : `Error (${res.status}): ${text}`;
-      outEl.classList.add("error");
+      appendMessage("system", data?.error ? `Error: ${data.error}` : `Error: ${text}`);
     } else {
-      outEl.textContent = data?.answer ?? text;
+      // 2. Append the AI's response to the UI
+      appendMessage("ai", data?.answer ?? text);
       
-      // Clear inputs on success
+      // Clear inputs
       msgEl.value = ""; 
       fileUpload.value = "";
       filePreview.textContent = "";
     }
   } catch (e) {
-    outEl.textContent = `Network error: ${e}`;
-    outEl.classList.add("error");
+    const tInd = document.getElementById("thinkingIndicator");
+    if(tInd) tInd.remove();
+    appendMessage("system", `Network error: ${e}`);
   } finally {
     setBusy(false);
     msgEl.focus();
   }
 }
 
-// Event Listeners for Buttons and Keyboard
 sendBtn.addEventListener("click", sendMessage);
 
 msgEl.addEventListener("keydown", (e) => {
@@ -100,28 +123,27 @@ msgEl.addEventListener("keydown", (e) => {
   }
 });
 
+// Clears the UI history and resets to the default message
 clearBtn.addEventListener("click", () => {
   msgEl.value = "";
   fileUpload.value = "";
   filePreview.textContent = "";
-  outEl.textContent = "Your answer will show up here…";
-  outEl.classList.remove("error");
+  chatHistory.innerHTML = '<div class="msg-bubble msg-system">Session started. Your conversation history will appear here.</div>';
   msgEl.focus();
 });
 
+// Copies the entire transcript to the clipboard
 copyBtn.addEventListener("click", async () => {
-  const text = outEl.textContent || "";
+  // Grab all messages except the system messages
+  const transcript = Array.from(chatHistory.querySelectorAll('.msg-bubble:not(.msg-system)'))
+                          .map(el => (el.classList.contains('msg-user') ? "User:\n" : "Interviewer:\n") + el.textContent)
+                          .join('\n\n---\n\n');
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(transcript);
     const old = copyBtn.textContent;
     copyBtn.textContent = "Copied!";
     setTimeout(() => (copyBtn.textContent = old), 900);
   } catch {
-    const range = document.createRange();
-    range.selectNodeContents(outEl);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-    copyBtn.textContent = "Select & Copy";
-    setTimeout(() => (copyBtn.textContent = "Copy"), 1100);
+    alert("Failed to copy transcript.");
   }
 });
