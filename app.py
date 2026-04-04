@@ -195,9 +195,10 @@ def api_chat():
                         "- BE EXTREMELY CONCISE. Acknowledge the user's answer in a single short sentence. Do NOT summarize or repeat their previous answers back to them.\n"
                         "- Ask EXACTLY ONE short, competency-based interview question at a time. Move the conversation forward rapidly.\n"
                         "- Always wait for the user to answer before moving to the next question.\n"
+                        "- PROACTIVE EVIDENCE GATHERING: If the student claims to hold a certification, degree, or mentions a tangible project, you MUST proactively ask them to upload corroborating proof (e.g., certificates, transcripts, or architecture diagrams) using the 'Attach' button. Do not just take their word for it.\n"
                         "- Do NOT evaluate, score, or promise credit. State that you collect evidence for the appropriate faculty committee.\n"
                         "- If the user uploads a document, extract relevant evidence to map to potential outcomes.\n"
-                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the student's responses. Once you confidently deduce that you have gathered enough concrete, professional evidence to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out. Thank the student briefly and explicitly instruct them to click the 'Submit to Advisor' button below the chat to send their official transcript for faculty review."
+                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the student's responses and uploaded evidence. Once you confidently deduce that you have gathered enough concrete proof to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out. Thank the student briefly and explicitly instruct them to click the 'Submit to Advisor' button below the chat to send their official transcript for faculty review."
                     )
                 }
             ]
