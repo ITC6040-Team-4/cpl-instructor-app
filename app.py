@@ -1,6 +1,7 @@
 import os
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, session
 from openai import AzureOpenAI
+import uuid
 
 # NEW: DB test imports
 import pyodbc
@@ -9,6 +10,8 @@ import pyodbc
 # Explicit template folder for Azure App Service reliability
 app = Flask(__name__, template_folder="templates")
 
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "cpl-dev-secret-key-2026") # Required to use Flask sessions
+chat_memory = {}
 
 # ===============================
 # Azure OpenAI Client Factory
@@ -140,21 +143,44 @@ def api_chat():
         if err:
             return jsonify({"error": err}), 500
 
+        # --- 1. SESSION MANAGEMENT ---
+        if "session_id" not in session:
+            session["session_id"] = str(uuid.uuid4())
+        
+        sid = session["session_id"]
+
+        # --- 2. INITIALIZE CPL PERSONA IF NEW SESSION ---
+        if sid not in chat_memory:
+            chat_memory[sid] = [
+                {
+                    "role": "system", 
+                    "content": (
+                        "You are an academic Evaluator Assistant for a Credit for Prior Learning (CPL) program. "
+                        "Your goal is to conduct a structured, competency-based interview to help the student articulate their prior learning. "
+                        "Ask exactly ONE question at a time. Wait for the user's response before asking the next question. "
+                        "Do NOT evaluate, score, or grant credit. Simply gather detailed evidence regarding their professional experience."
+                    )
+                }
+            ]
+
+        # --- 3. APPEND USER MESSAGE TO HISTORY ---
+        chat_memory[sid].append({"role": "user", "content": user_message})
+
+        # --- 4. SEND ENTIRE HISTORY TO AZURE ---
         response = client.chat.completions.create(
             model=deployment,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant for the CPL course."},
-                {"role": "user", "content": user_message},
-            ],
+            messages=chat_memory[sid],
             temperature=0.3,
         )
 
         answer = (response.choices[0].message.content or "").strip()
 
+        # --- 5. APPEND AI ANSWER TO HISTORY ---
+        chat_memory[sid].append({"role": "assistant", "content": answer})
+
         return jsonify({"answer": answer})
 
     except Exception as e:
-        # Log full traceback in Azure Log Stream
         app.logger.exception("Azure OpenAI call failed")
         return jsonify({
             "error": f"Azure OpenAI call failed: {type(e).__name__}"
