@@ -5,19 +5,41 @@ const clearBtn = document.getElementById("clear");
 const copyBtn = document.getElementById("copy");
 const statusText = document.getElementById("statusText");
 
+// File upload elements
+const fileUpload = document.getElementById("fileUpload");
+const attachBtn = document.getElementById("attachBtn");
+const filePreview = document.getElementById("filePreview");
+
 function setStatus(text) { 
   statusText.textContent = text; 
 }
 
-// Function to lock and unlock the UI
 function setBusy(isBusy) {
   sendBtn.disabled = isBusy;
   msgEl.disabled = isBusy;
   copyBtn.disabled = isBusy;
   clearBtn.disabled = isBusy;
+  attachBtn.disabled = isBusy; // Lock attach button while thinking
   setStatus(isBusy ? "Thinking..." : "Ready");
 }
 
+// 1. TRIGGER THE HIDDEN FILE INPUT WHEN ATTACH IS CLICKED
+attachBtn.addEventListener("click", () => {
+  fileUpload.click();
+});
+
+// 2. SHOW THE FILENAME WHEN A FILE IS SELECTED
+fileUpload.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) {
+    filePreview.textContent = "";
+    return;
+  }
+  filePreview.textContent = `📎 Attached: ${file.name}`;
+  filePreview.style.color = "var(--accent2)";
+});
+
+// 3. SEND THE MESSAGE AND FILE TO THE BACKEND
 async function sendMessage() {
   const msg = msgEl.value.trim();
   const file = fileUpload.files[0];
@@ -32,7 +54,6 @@ async function sendMessage() {
   outEl.textContent = "Thinking...";
   outEl.classList.remove("error");
 
-  // SWITCH FROM JSON TO FORMDATA
   const formData = new FormData();
   formData.append("message", msg);
   if (file) {
@@ -42,9 +63,7 @@ async function sendMessage() {
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
-      // Note: Do NOT set 'Content-Type' header manually when sending FormData. 
-      // The browser automatically sets it with the correct boundary.
-      body: formData, 
+      body: formData, // Sending as FormData so Flask can read the file
     });
 
     const text = await res.text();
@@ -71,10 +90,9 @@ async function sendMessage() {
   }
 }
 
-// Event Listeners
+// Event Listeners for Buttons and Keyboard
 sendBtn.addEventListener("click", sendMessage);
 
-// Allow sending with Ctrl+Enter or Cmd+Enter
 msgEl.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     e.preventDefault();
@@ -82,15 +100,15 @@ msgEl.addEventListener("keydown", (e) => {
   }
 });
 
-// Clear button logic
 clearBtn.addEventListener("click", () => {
   msgEl.value = "";
+  fileUpload.value = "";
+  filePreview.textContent = "";
   outEl.textContent = "Your answer will show up here…";
   outEl.classList.remove("error");
   msgEl.focus();
 });
 
-// Copy button logic
 copyBtn.addEventListener("click", async () => {
   const text = outEl.textContent || "";
   try {
