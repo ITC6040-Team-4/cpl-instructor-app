@@ -35,13 +35,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Upload the *source* (templates/static/app.py/etc.) as the deployment artifact
+      # Upload source as artifact (templates/static/app.py/etc.)
+      # Excludes common junk folders/files to keep deployments small and predictable.
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: .
           if-no-files-found: error
+          path: |
+            .
+            !.git/
+            !.gitignore
+            !__pycache__/
+            !**/__pycache__/
+            !**/*.pyc
+            !**/*.pyo
+            !**/*.pyd
+            !.DS_Store
+            !**/.DS_Store
+            !antenv/
+            !.venv/
+            !venv/
+            !env/
+            !node_modules/
+            !*.log
 
   deploy:
     runs-on: ubuntu-latest
@@ -83,4 +100,3 @@ jobs:
           slot-name: Production
           package: python-app
           clean: true
-
