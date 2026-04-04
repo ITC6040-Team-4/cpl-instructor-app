@@ -147,3 +147,33 @@ copyBtn.addEventListener("click", async () => {
     alert("Failed to copy transcript.");
   }
 });
+
+// NEW: Submit Application Logic
+const submitAppBtn = document.getElementById("submitApp");
+
+submitAppBtn.addEventListener("click", async () => {
+  if (!confirm("Are you sure you want to finish the interview and send this transcript to your advisor?")) return;
+
+  submitAppBtn.disabled = true;
+  submitAppBtn.textContent = "⏳ Sending...";
+  appendMessage("system", "Packaging your transcript and sending to the faculty advisor...");
+
+  try {
+    const res = await fetch("/api/submit", { method: "POST" });
+    const data = await res.json();
+
+    if (!res.ok) {
+      appendMessage("system", `❌ Failed to submit: ${data.error}`);
+    } else {
+      appendMessage("system", `✅ Success: ${data.status}`);
+      if (data.summary) {
+        appendMessage("system", "Here is a copy of what was sent:\n\n" + data.summary);
+      }
+    }
+  } catch (e) {
+    appendMessage("system", `❌ Network error during submission: ${e}`);
+  } finally {
+    submitAppBtn.disabled = false;
+    submitAppBtn.textContent = "✉️ Submit to Advisor";
+  }
+});

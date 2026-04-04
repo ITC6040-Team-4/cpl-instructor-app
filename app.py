@@ -4,6 +4,8 @@ from openai import AzureOpenAI
 import uuid
 import PyPDF2
 import io
+import smtplib
+from email.message import EmailMessage
 
 # NEW: DB test imports
 import pyodbc
@@ -175,16 +177,26 @@ def api_chat():
         sid = session["session_id"]
 
         if sid not in chat_memory:
-            # (Keep your existing CPL Persona system prompt here)
             chat_memory[sid] = [
                 {
                     "role": "system", 
                     "content": (
-                        "You are an academic Evaluator Assistant for a Credit for Prior Learning (CPL) program. "
-                        "Your goal is to conduct a structured, competency-based interview. "
-                        "Ask exactly ONE question at a time. Wait for the user's response before asking the next question. "
-                        "Do NOT evaluate, score, or grant credit. "
-                        "If the user uploads a document, extract relevant evidence from it to map to the learning outcomes."
+                        "You are a master academic Evaluator Assistant for Northeastern University's Credit for Prior Learning (CPL) program. "
+                        "You evaluate students for ALL colleges across Northeastern University.\n\n"
+                        
+                        "YOUR FIRST TASK:\n"
+                        "You MUST begin the conversation by politely asking the student for their Full Name and Northeastern Student ID. Do not ask any interview questions until you have this information.\n\n"
+
+                        "YOUR INTERVIEW KNOWLEDGE BASE:\n"
+                        "Rely on your extensive pre-trained knowledge of standard university curricula. "
+                        "When a student describes their professional background, dynamically identify specific Northeastern courses that align with their skills.\n\n"
+                        
+                        "CRITICAL RULES YOU MUST STRICTLY FOLLOW:\n"
+                        "- Ask EXACTLY ONE short, competency-based interview question at a time.\n"
+                        "- Always wait for the user to answer before moving to the next question.\n"
+                        "- Do NOT evaluate, score, or promise credit. State that you collect evidence for the appropriate faculty committee.\n"
+                        "- If the user uploads a document, extract relevant evidence to map to potential outcomes.\n"
+                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the student's responses. Once you confidently deduce that you have gathered enough concrete, professional evidence to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out with arbitrary questions if you already have sufficient data. Thank the student for their time and explicitly instruct them to click the 'Submit to Advisor' button below the chat to send their official transcript for faculty review."
                     )
                 }
             ]
@@ -206,6 +218,66 @@ def api_chat():
     except Exception as e:
         app.logger.exception("Azure OpenAI call failed")
         return jsonify({"error": f"Azure OpenAI call failed: {type(e).__name__}"}), 500
+
+# ===============================
+# Finalize & Email Route
+# ===============================
+@app.post("/api/submit")
+def submit_application():
+    try:
+        if "session_id" not in session or session["session_id"] not in chat_memory:
+            return jsonify({"error": "No active chat history found to submit."}), 400
+        
+        sid = session["session_id"]
+        history = chat_memory[sid]
+
+        client, err = get_client()
+        if err: return jsonify({"error": err}), 500
+        deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+
+        # 1. Ask the AI to summarize the entire chat history into an email body
+        summary_prompt = list(history) # Copy the history
+        summary_prompt.append({
+            "role": "user", 
+            "content": "The interview is over. Please read our entire conversation above and generate a formal email to the CPL Faculty Advisor. Extract the student's Name and Student ID. Summarize the evidence they provided, the documents they uploaded, and the specific academic areas their experience maps to. Do NOT include pleasantries like 'Sure, here is the email', just output the raw email text."
+        })
+
+        response = client.chat.completions.create(
+            model=deployment,
+            messages=summary_prompt,
+            temperature=0.2,
+        )
+        email_body = response.choices[0].message.content.strip()
+
+        # 2. Send the Email using Python's smtplib
+        advisor_email = os.getenv("ADVISOR_EMAIL", "your-email@gmail.com") # Where the email goes
+        bot_email = os.getenv("BOT_EMAIL") # The bot's email address
+        bot_password = os.getenv("BOT_EMAIL_PASSWORD") # App password
+
+        if not bot_email or not bot_password:
+            # If you haven't set up the email keys yet, just print it to the terminal for testing
+            print("\n--- SIMULATED EMAIL TO ADVISOR ---")
+            print(email_body)
+            print("----------------------------------\n")
+            return jsonify({"status": "Simulation successful. Check server logs for email text.", "summary": email_body})
+
+        # Actual email sending logic (Requires Gmail App Password in .env)
+        msg = EmailMessage()
+        msg.set_content(email_body)
+        msg['Subject'] = "New CPL Application Ready for Review"
+        msg['From'] = bot_email
+        msg['To'] = advisor_email
+
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(bot_email, bot_password)
+        server.send_message(msg)
+        server.quit()
+
+        return jsonify({"status": "Email successfully sent to the advisor!"})
+
+    except Exception as e:
+        app.logger.exception("Failed to submit application")
+        return jsonify({"error": str(e)}), 500
 
 # ===============================
 # Local Dev Entry Point
