@@ -30,11 +30,16 @@
 
         <div class="actions">
           <div class="btnrow">
+            <input type="file" id="fileUpload" accept=".txt,.csv,.md,.pdf" style="display: none;" />
+            <button id="attachBtn" class="smallbtn" type="button" title="Upload .txt, .csv, or .pdf files">📎 Attach</button>
+
             <button id="send" class="primary">Send</button>
             <button id="clear" class="smallbtn" type="button">Clear</button>
           </div>
           <div class="hint">Tip: Press <b>Ctrl/⌘ + Enter</b> to send</div>
         </div>
+        
+        <div id="filePreview" style="font-size: 13px; color: var(--accent2); margin-top: 12px; font-weight: 500;"></div>
       </section>
 
       <section class="card" aria-label="Chat response">
@@ -47,6 +52,6 @@
     </section>
   </main>
 
-  <script src="/static/chat.js?v=2.0"></script>
+  <script src="/static/chat.js?v=3.0"></script>
 </body>
 </html>

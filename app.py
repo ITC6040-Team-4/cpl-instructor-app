@@ -2,6 +2,8 @@ import os
 from flask import Flask, render_template, request, jsonify, send_from_directory, session
 from openai import AzureOpenAI
 import uuid
+import PyPDF2
+import io
 
 # NEW: DB test imports
 import pyodbc
@@ -129,11 +131,35 @@ def dbcheck():
 @app.post("/api/chat")
 def api_chat():
     try:
-        data = request.get_json(silent=True) or {}
-        user_message = (data.get("message") or "").strip()
+        # 1. SWITCH TO FORM DATA PARSING
+        user_message = (request.form.get("message") or "").strip()
+        uploaded_file = request.files.get("file")
 
-        if not user_message:
-            return jsonify({"error": "Message is required"}), 400
+        if not user_message and not uploaded_file:
+            return jsonify({"error": "Message or file is required"}), 400
+
+        # 2. EXTRACT TEXT FROM THE FILE
+        file_text = ""
+        if uploaded_file:
+            filename = uploaded_file.filename.lower()
+            file_bytes = uploaded_file.read()
+            
+            try:
+                if filename.endswith(('.txt', '.csv', '.md')):
+                    file_text = file_bytes.decode('utf-8')
+                elif filename.endswith('.pdf'):
+                    pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+                    for page in pdf_reader.pages:
+                        file_text += (page.extract_text() or "") + "\n"
+                else:
+                    return jsonify({"error": "Unsupported file type. Please upload PDF or Text files."}), 400
+            except Exception as e:
+                return jsonify({"error": f"Failed to read file: {str(e)}"}), 400
+
+        # 3. BUNDLE FILE CONTENT WITH USER MESSAGE
+        final_prompt = user_message
+        if file_text:
+            final_prompt = f"[The user attached a document named '{uploaded_file.filename}']\n\nDOCUMENT CONTENT:\n{file_text}\n\nUSER MESSAGE:\n{user_message or 'Please review the attached document.'}"
 
         deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
         if not deployment:
@@ -143,30 +169,29 @@ def api_chat():
         if err:
             return jsonify({"error": err}), 500
 
-        # --- 1. SESSION MANAGEMENT ---
         if "session_id" not in session:
             session["session_id"] = str(uuid.uuid4())
         
         sid = session["session_id"]
 
-        # --- 2. INITIALIZE CPL PERSONA IF NEW SESSION ---
         if sid not in chat_memory:
+            # (Keep your existing CPL Persona system prompt here)
             chat_memory[sid] = [
                 {
                     "role": "system", 
                     "content": (
                         "You are an academic Evaluator Assistant for a Credit for Prior Learning (CPL) program. "
-                        "Your goal is to conduct a structured, competency-based interview to help the student articulate their prior learning. "
+                        "Your goal is to conduct a structured, competency-based interview. "
                         "Ask exactly ONE question at a time. Wait for the user's response before asking the next question. "
-                        "Do NOT evaluate, score, or grant credit. Simply gather detailed evidence regarding their professional experience."
+                        "Do NOT evaluate, score, or grant credit. "
+                        "If the user uploads a document, extract relevant evidence from it to map to the learning outcomes."
                     )
                 }
             ]
 
-        # --- 3. APPEND USER MESSAGE TO HISTORY ---
-        chat_memory[sid].append({"role": "user", "content": user_message})
+        # Use the final_prompt which contains the bundled file text
+        chat_memory[sid].append({"role": "user", "content": final_prompt})
 
-        # --- 4. SEND ENTIRE HISTORY TO AZURE ---
         response = client.chat.completions.create(
             model=deployment,
             messages=chat_memory[sid],
@@ -174,18 +199,13 @@ def api_chat():
         )
 
         answer = (response.choices[0].message.content or "").strip()
-
-        # --- 5. APPEND AI ANSWER TO HISTORY ---
         chat_memory[sid].append({"role": "assistant", "content": answer})
 
         return jsonify({"answer": answer})
 
     except Exception as e:
         app.logger.exception("Azure OpenAI call failed")
-        return jsonify({
-            "error": f"Azure OpenAI call failed: {type(e).__name__}"
-        }), 500
-
+        return jsonify({"error": f"Azure OpenAI call failed: {type(e).__name__}"}), 500
 
 # ===============================
 # Local Dev Entry Point

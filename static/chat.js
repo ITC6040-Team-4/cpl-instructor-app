@@ -20,20 +20,31 @@ function setBusy(isBusy) {
 
 async function sendMessage() {
   const msg = msgEl.value.trim();
-  if (!msg) {
-    outEl.textContent = "Please type a message first.";
+  const file = fileUpload.files[0];
+  
+  if (!msg && !file) {
+    outEl.textContent = "Please type a message or attach a file first.";
+    outEl.classList.add("error");
     return;
   }
 
-  // Lock UI while waiting for Azure OpenAI
   setBusy(true);
   outEl.textContent = "Thinking...";
+  outEl.classList.remove("error");
+
+  // SWITCH FROM JSON TO FORMDATA
+  const formData = new FormData();
+  formData.append("message", msg);
+  if (file) {
+    formData.append("file", file);
+  }
 
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: msg }),
+      // Note: Do NOT set 'Content-Type' header manually when sending FormData. 
+      // The browser automatically sets it with the correct boundary.
+      body: formData, 
     });
 
     const text = await res.text();
@@ -45,15 +56,16 @@ async function sendMessage() {
       outEl.classList.add("error");
     } else {
       outEl.textContent = data?.answer ?? text;
-      outEl.classList.remove("error");
-      // Clear the input box so the user can easily type their next answer
+      
+      // Clear inputs on success
       msgEl.value = ""; 
+      fileUpload.value = "";
+      filePreview.textContent = "";
     }
   } catch (e) {
     outEl.textContent = `Network error: ${e}`;
     outEl.classList.add("error");
   } finally {
-    // UNLOCK THE UI so the user can reply
     setBusy(false);
     msgEl.focus();
   }
