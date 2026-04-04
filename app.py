@@ -2,6 +2,10 @@ import os
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from openai import AzureOpenAI
 
+# NEW: DB test imports
+import pyodbc
+
+
 # Explicit template folder for Azure App Service reliability
 app = Flask(__name__, template_folder="templates")
 
@@ -59,6 +63,8 @@ def admin_page():
         "AZURE_OPENAI_API_KEY": "✅ set" if os.getenv("AZURE_OPENAI_API_KEY") else "❌ missing",
         "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION") or "(default: 2024-12-01-preview)",
         "AZURE_OPENAI_DEPLOYMENT": "✅ set" if os.getenv("AZURE_OPENAI_DEPLOYMENT") else "❌ missing",
+        # NEW: show whether SQL conn string is present (but never show its value)
+        "SQL_CONNECTION_STRING": "✅ set" if os.getenv("SQL_CONNECTION_STRING") else "❌ missing",
     }
     return render_template("admin.html", status=status)
 
@@ -84,6 +90,34 @@ def versions():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ===============================
+# ✅ DB CHECK ROUTE
+# Verifies Web App can connect to Azure SQL
+# ===============================
+@app.get("/dbcheck")
+def dbcheck():
+    conn_str = os.getenv("SQL_CONNECTION_STRING")
+    if not conn_str:
+        return jsonify({"error": "Missing SQL_CONNECTION_STRING"}), 500
+
+    try:
+        # Keep it simple: open connection and run a tiny query
+        conn = pyodbc.connect(conn_str, timeout=10)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        row = cursor.fetchone()
+        conn.close()
+
+        return jsonify({"status": "DB Connected", "result": int(row[0])})
+    except Exception as e:
+        # Log full traceback in Azure Log Stream
+        app.logger.exception("DB connection check failed")
+        return jsonify({
+            "error": f"DB check failed: {type(e).__name__}",
+            "details": str(e),
+        }), 500
 
 
 # ===============================
