@@ -1,609 +1,105 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>CPL Chat.</title>
- 
-    <style>
-
-      :root {
-
-        --bg: #0b1220;
-
-        --card: rgba(255, 255, 255, 0.06);
-
-        --border: rgba(255, 255, 255, 0.12);
-
-        --border2: rgba(255, 255, 255, 0.18);
-
-        --text: rgba(255, 255, 255, 0.92);
-
-        --muted: rgba(255, 255, 255, 0.70);
-
-        --muted2: rgba(255, 255, 255, 0.55);
-
-        --accent: #7c5cff;
-
-        --accent2: #28d7a5;
-
-        --danger: #ff6b6b;
-
-      }
- 
-      * { box-sizing: border-box; }
- 
-      body {
-
-        margin: 0;
-
-        min-height: 100vh;
-
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-
-          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-
-        color: var(--text);
-
-        background:
-
-          radial-gradient(800px 400px at 20% 10%, rgba(124, 92, 255, 0.35), transparent 60%),
-
-          radial-gradient(700px 420px at 90% 20%, rgba(40, 215, 165, 0.25), transparent 55%),
-
-          radial-gradient(900px 500px at 50% 110%, rgba(255, 255, 255, 0.08), transparent 60%),
-
-          var(--bg);
-
-        display: grid;
-
-        place-items: start center;
-
-        padding: 24px;
-
-      }
- 
-      .wrap {
-
-        width: 100%;
-
-        max-width: 980px;
-
-      }
- 
-      .topbar {
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: space-between;
-
-        gap: 12px;
-
-        margin: 4px 0 14px;
-
-      }
- 
-      .crumbs a {
-
-        color: var(--muted);
-
-        text-decoration: none;
-
-        border-bottom: 1px dashed transparent;
-
-      }
-
-      .crumbs a:hover {
-
-        color: var(--text);
-
-        border-bottom-color: var(--border2);
-
-      }
- 
-      .status {
-
-        display: inline-flex;
-
-        align-items: center;
-
-        gap: 8px;
-
-        padding: 8px 10px;
-
-        border-radius: 999px;
-
-        border: 1px solid var(--border);
-
-        color: var(--muted);
-
-        font-size: 12px;
-
-        background: rgba(255, 255, 255, 0.04);
-
-      }
-
-      .dot {
-
-        width: 10px; height: 10px; border-radius: 999px;
-
-        background: var(--accent2);
-
-        box-shadow: 0 0 0 4px rgba(40, 215, 165, 0.12);
-
-      }
- 
-      .grid {
-
-        display: grid;
-
-        grid-template-columns: 1.15fr 0.85fr;
-
-        gap: 14px;
-
-      }
- 
-      .card {
-
-        background: var(--card);
-
-        border: 1px solid var(--border);
-
-        border-radius: 18px;
-
-        padding: 20px;
-
-        backdrop-filter: blur(10px);
-
-        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-
-      }
- 
-      h1 {
-
-        margin: 0 0 6px;
-
-        font-size: clamp(20px, 2.6vw, 28px);
-
-        letter-spacing: 0.2px;
-
-      }
- 
-      .sub {
-
-        margin: 0 0 14px;
-
-        color: var(--muted);
-
-        font-size: 14px;
-
-        line-height: 1.4;
-
-      }
- 
-      label {
-
-        display: block;
-
-        margin: 10px 0 8px;
-
-        color: var(--muted);
-
-        font-size: 13px;
-
-      }
- 
-      textarea {
-
-        width: 100%;
-
-        min-height: 150px;
-
-        resize: vertical;
-
-        padding: 12px 12px;
-
-        border-radius: 14px;
-
-        border: 1px solid var(--border);
-
-        background: rgba(0, 0, 0, 0.25);
-
-        color: var(--text);
-
-        outline: none;
-
-        line-height: 1.4;
-
-      }
-
-      textarea:focus {
-
-        border-color: rgba(124, 92, 255, 0.55);
-
-        box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.16);
-
-      }
- 
-      .actions {
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: space-between;
-
-        gap: 10px;
-
-        margin-top: 10px;
-
-      }
- 
-      .btnrow {
-
-        display: flex;
-
-        gap: 10px;
-
-        flex-wrap: wrap;
-
-      }
- 
-      button {
-
-        appearance: none;
-
-        border: 1px solid var(--border);
-
-        border-radius: 14px;
-
-        padding: 10px 14px;
-
-        font-weight: 600;
-
-        color: var(--text);
-
-        background: rgba(255, 255, 255, 0.06);
-
-        cursor: pointer;
-
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-
-      }
- 
-      button:hover {
-
-        transform: translateY(-1px);
-
-        background: rgba(255, 255, 255, 0.09);
-
-        border-color: rgba(255, 255, 255, 0.20);
-
-      }
- 
-      #send.primary {
-
-        border-color: rgba(124, 92, 255, 0.55);
-
-        background: linear-gradient(135deg, rgba(124, 92, 255, 0.35), rgba(40, 215, 165, 0.18));
-
-      }
- 
-      #send.primary:disabled,
-
-      button:disabled {
-
-        opacity: 0.55;
-
-        cursor: not-allowed;
-
-        transform: none;
-
-      }
- 
-      .hint {
-
-        color: var(--muted2);
-
-        font-size: 12px;
-
-      }
- 
-      .panelTitle {
-
-        display: flex;
-
-        align-items: center;
-
-        justify-content: space-between;
-
-        gap: 10px;
-
-        margin-bottom: 10px;
-
-      }
- 
-      .panelTitle h2 {
-
-        margin: 0;
-
-        font-size: 14px;
-
-        color: var(--muted);
-
-        font-weight: 650;
-
-        letter-spacing: 0.2px;
-
-        text-transform: uppercase;
-
-      }
- 
-      pre {
-
-        margin: 0;
-
-        min-height: 260px;
-
-        white-space: pre-wrap;
-
-        word-break: break-word;
-
-        padding: 12px;
-
-        border-radius: 14px;
-
-        border: 1px solid var(--border);
-
-        background: rgba(0, 0, 0, 0.25);
-
-        color: var(--text);
-
-        line-height: 1.45;
-
-      }
- 
-      .smallbtn {
-
-        padding: 8px 10px;
-
-        border-radius: 12px;
-
-        font-size: 12px;
-
-        color: var(--muted);
-
-      }
- 
-      .error {
-
-        color: var(--danger);
-
-      }
- 
-      @media (max-width: 880px) {
-
-        .grid { grid-template-columns: 1fr; }
-
-        pre { min-height: 220px; }
-
-      }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CPL Chat</title>
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
- 
-  <body>
-<main class="wrap">
-<div class="topbar">
-<div class="crumbs">
-<a href="/">← Home</a>
-<span style="color: var(--muted2); margin: 0 6px;">/</span>
-<span style="color: var(--text);">Chat</span>
-</div>
-<div class="status" id="statusPill" title="App status">
-<span class="dot" aria-hidden="true"></span>
-<span id="statusText">Ready</span>
-</div>
-</div>
- 
-      <section class="grid">
-<!-- Left: input -->
-<section class="card" aria-label="Chat input">
-<h1>CPL Chat Demo</h1>
-<p class="sub">Type a prompt and call Azure OpenAI through the Web App.</p>
- 
-          <label for="msg">Your prompt</label>
-<textarea id="msg" placeholder="Ask something... (Shift+Enter for newline)"></textarea>
- 
-          <div class="actions">
-<div class="btnrow">
-<button id="send" class="primary">Send</button>
-<button id="clear" class="smallbtn" type="button">Clear</button>
-</div>
-<div class="hint">Tip: Press <b>Ctrl/⌘ + Enter</b> to send</div>
-</div>
-</section>
- 
-        <!-- Right: response -->
-<section class="card" aria-label="Chat response">
-<div class="panelTitle">
-<h2>Response</h2>
-<button id="copy" class="smallbtn" type="button">Copy</button>
-</div>
-<pre id="out">Your answer will show up here…</pre>
-</section>
-</section>
-</main>
- 
-    <script>
+<body class="chat-layout">
+  <main class="wrap wrap-chat">
+    <div class="topbar">
+      <div class="crumbs">
+        <a href="/">← Home</a>
+        <span style="color: var(--muted2); margin: 0 6px;">/</span>
+        <span style="color: var(--text);">Chat</span>
+      </div>
+      <div class="status" id="statusPill" title="App status">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
 
-      const msgEl = document.getElementById("msg");
+    <section class="grid">
+      <section class="card" aria-label="Chat input">
+        <h1>CPL Chat Demo</h1>
+        <p class="sub">Type a prompt and call Azure OpenAI through the Web App.</p>
 
-      const outEl = document.getElementById("out");
+        <label for="msg">Your prompt</label>
+        <textarea id="msg" placeholder="Ask something... (Shift+Enter for newline)"></textarea>
 
-      const sendBtn = document.getElementById("send");
+        <div class="actions">
+          <div class="btnrow">
+            <button id="send" class="primary">Send</button>
+            <button id="clear" class="smallbtn" type="button">Clear</button>
+          </div>
+          <div class="hint">Tip: Press <b>Ctrl/⌘ + Enter</b> to send</div>
+        </div>
+      </section>
 
-      const clearBtn = document.getElementById("clear");
+      <section class="card" aria-label="Chat response">
+        <div class="panelTitle">
+          <h2>Response</h2>
+          <button id="copy" class="smallbtn" type="button">Copy</button>
+        </div>
+        <pre id="out">Your answer will show up here…</pre>
+      </section>
+    </section>
+  </main>
 
-      const copyBtn = document.getElementById("copy");
+  <script src="/static/chat.js"></script>
+  <script>
+    // Moved specific UI logic here that doesn't belong in chat.js
+    const msgEl = document.getElementById("msg");
+    const outEl = document.getElementById("out");
+    const sendBtn = document.getElementById("send");
+    const clearBtn = document.getElementById("clear");
+    const copyBtn = document.getElementById("copy");
+    const statusText = document.getElementById("statusText");
 
-      const statusText = document.getElementById("statusText");
+    function setStatus(text) { statusText.textContent = text; }
+    function setBusy(isBusy) {
+      sendBtn.disabled = isBusy;
+      msgEl.disabled = isBusy;
+      copyBtn.disabled = isBusy;
+      clearBtn.disabled = isBusy;
+      setStatus(isBusy ? "Thinking..." : "Ready");
+    }
 
-      const statusPill = document.getElementById("statusPill");
- 
-      function setStatus(text) {
-
-        statusText.textContent = text;
-
+    // Attach to existing sendMessage logic from chat.js if needed or handle UI state
+    document.getElementById("send").addEventListener("click", () => setBusy(true));
+    
+    // Quick keybind logic
+    msgEl.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        sendBtn.click();
       }
- 
-      function setBusy(isBusy) {
+    });
 
-        sendBtn.disabled = isBusy;
+    clearBtn.addEventListener("click", () => {
+      msgEl.value = "";
+      outEl.textContent = "Your answer will show up here…";
+      outEl.classList.remove("error");
+      msgEl.focus();
+    });
 
-        msgEl.disabled = isBusy;
-
-        copyBtn.disabled = isBusy;
-
-        clearBtn.disabled = isBusy;
-
-        setStatus(isBusy ? "Thinking..." : "Ready");
-
+    copyBtn.addEventListener("click", async () => {
+      const text = outEl.textContent || "";
+      try {
+        await navigator.clipboard.writeText(text);
+        const old = copyBtn.textContent;
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => (copyBtn.textContent = old), 900);
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(outEl);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        copyBtn.textContent = "Select & Copy";
+        setTimeout(() => (copyBtn.textContent = "Copy"), 1100);
       }
- 
-      async function sendMessage() {
-
-        const msg = msgEl.value.trim();
-
-        if (!msg) {
-
-          outEl.textContent = "Please type something first.";
-
-          outEl.classList.add("error");
-
-          return;
-
-        }
- 
-        outEl.classList.remove("error");
-
-        outEl.textContent = "Thinking...";
-
-        setBusy(true);
- 
-        try {
-
-          const res = await fetch("/api/chat", {
-
-            method: "POST",
-
-            headers: { "Content-Type": "application/json" },
-
-            body: JSON.stringify({ message: msg }),
-
-          });
- 
-          const data = await res.json().catch(() => ({}));
-
-          if (!res.ok) {
-
-            outEl.textContent = data.error || "Request failed";
-
-            outEl.classList.add("error");
-
-            return;
-
-          }
- 
-          outEl.textContent = data.answer || "";
-
-        } catch (e) {
-
-          outEl.textContent = "Network error";
-
-          outEl.classList.add("error");
-
-        } finally {
-
-          setBusy(false);
-
-        }
-
-      }
- 
-      sendBtn.addEventListener("click", sendMessage);
- 
-      // Keyboard shortcuts:
-
-      // - Ctrl/Cmd+Enter: send
-
-      msgEl.addEventListener("keydown", (e) => {
-
-        const isEnter = e.key === "Enter";
-
-        const isSendCombo = (e.ctrlKey || e.metaKey) && isEnter;
-
-        if (isSendCombo) {
-
-          e.preventDefault();
-
-          sendMessage();
-
-        }
-
-      });
- 
-      clearBtn.addEventListener("click", () => {
-
-        msgEl.value = "";
-
-        outEl.textContent = "Your answer will show up here…";
-
-        outEl.classList.remove("error");
-
-        msgEl.focus();
-
-      });
- 
-      copyBtn.addEventListener("click", async () => {
-
-        const text = outEl.textContent || "";
-
-        try {
-
-          await navigator.clipboard.writeText(text);
-
-          const old = copyBtn.textContent;
-
-          copyBtn.textContent = "Copied!";
-
-          setTimeout(() => (copyBtn.textContent = old), 900);
-
-        } catch {
-
-          // Fallback: select text (works in most browsers)
-
-          const range = document.createRange();
-
-          range.selectNodeContents(outEl);
-
-          const sel = window.getSelection();
-
-          sel.removeAllRanges();
-
-          sel.addRange(range);
-
-          const old = copyBtn.textContent;
-
-          copyBtn.textContent = "Select & Copy";
-
-          setTimeout(() => (copyBtn.textContent = old), 1100);
-
-        }
-
-      });
-</script>
+    });
+  </script>
 </body>
 </html>
- 

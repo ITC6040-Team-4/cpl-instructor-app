@@ -1,210 +1,59 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Team 4 - CPL Application</title>
-<style>
-      :root {
-        --bg: #0b1220;
-        --card: rgba(255, 255, 255, 0.06);
-        --border: rgba(255, 255, 255, 0.12);
-        --text: rgba(255, 255, 255, 0.92);
-        --muted: rgba(255, 255, 255, 0.70);
-        --accent: #7c5cff;
-        --accent2: #28d7a5;
-      }
- 
-      * { box-sizing: border-box; }
- 
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-          Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-        color: var(--text);
-        background:
-          radial-gradient(800px 400px at 20% 10%, rgba(124, 92, 255, 0.35), transparent 60%),
-          radial-gradient(700px 420px at 90% 20%, rgba(40, 215, 165, 0.25), transparent 55%),
-          radial-gradient(900px 500px at 50% 110%, rgba(255, 255, 255, 0.08), transparent 60%),
-          var(--bg);
-        display: grid;
-        place-items: center;
-        padding: 24px;
-      }
- 
-      .wrap {
-        width: 100%;
-        max-width: 760px;
-      }
- 
-      .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 28px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-      }
- 
-      header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 18px;
-      }
- 
-      h1 {
-        font-size: clamp(22px, 3vw, 30px);
-        line-height: 1.2;
-        margin: 0;
-        letter-spacing: 0.2px;
-      }
- 
-      .pill {
-        font-size: 12px;
-        padding: 8px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        color: var(--muted);
-        white-space: nowrap;
-      }
- 
-      .sub {
-        margin: 8px 0 0;
-        color: var(--muted);
-        font-size: 14px;
-      }
- 
-      .links {
-        list-style: none;
-        padding: 0;
-        margin: 22px 0 0;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-      }
- 
-      .links a {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 14px 14px;
-        border-radius: 14px;
-        border: 1px solid var(--border);
-        background: rgba(255, 255, 255, 0.04);
-        text-decoration: none;
-        color: var(--text);
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-      }
- 
-      .links a:hover {
-        transform: translateY(-2px);
-        background: rgba(255, 255, 255, 0.07);
-        border-color: rgba(255, 255, 255, 0.20);
-      }
- 
-      .label {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
- 
-      .label strong {
-        font-size: 14px;
-      }
- 
-      .label span {
-        font-size: 12px;
-        color: var(--muted);
-      }
- 
-      .arrow {
-        opacity: 0.85;
-        font-size: 16px;
-      }
- 
-      footer {
-        margin-top: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        color: var(--muted);
-        font-size: 12px;
-      }
- 
-      .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-        background: var(--accent2);
-        box-shadow: 0 0 0 4px rgba(40, 215, 165, 0.12);
-        display: inline-block;
-        margin-right: 8px;
-        vertical-align: -1px;
-      }
- 
-      @media (max-width: 640px) {
-        .card { padding: 22px; }
-        .links { grid-template-columns: 1fr; }
-      }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team 4 - CPL Application</title>
+  <link rel="stylesheet" href="/static/style.css" />
 </head>
- 
-  <body>
-<main class="wrap">
-<section class="card" role="region" aria-label="App status and links">
-<header>
-<div>
-<h1>Team 4 CPL App</h1>
-<p class="sub">
-<span class="dot"></span>
-              Running successfully — pick a page to continue.
-</p>
-</div>
-<div class="pill">Status: OK</div>
-</header>
- 
-        <ul class="links">
-<li>
-<a href="/chat" aria-label="Open Chat demo">
-<div class="label">
-<strong>Chat demo</strong>
-<span>/chat</span>
-</div>
-<span class="arrow">→</span>
-</a>
-</li>
- 
-          <li>
-<a href="/admin" aria-label="Open Admin and Config status">
-<div class="label">
-<strong>Admin / Config</strong>
-<span>/admin</span>
-</div>
-<span class="arrow">→</span>
-</a>
-</li>
- 
-          <li>
-<a href="/health" aria-label="Open Health endpoint">
-<div class="label">
-<strong>Health</strong>
-<span>/health</span>
-</div>
-<span class="arrow">→</span>
-</a>
-</li>
-</ul>
- 
-        <footer>
-<span>© Team 4</span>
-<span>Minimal landing page</span>
-</footer>
-</section>
-</main>
+<body>
+  <main class="wrap wrap-index">
+    <section class="card" role="region" aria-label="App status and links">
+      <header>
+        <div>
+          <h1>Team 4 CPL App</h1>
+          <p class="sub">
+            <span class="dot"></span>
+            Running successfully — pick a page to continue.
+          </p>
+        </div>
+        <div class="pill">Status: OK</div>
+      </header>
+
+      <ul class="links">
+        <li>
+          <a href="/chat" aria-label="Open Chat demo">
+            <div class="label">
+              <strong>Chat demo</strong>
+              <span>/chat</span>
+            </div>
+            <span class="arrow">→</span>
+          </a>
+        </li>
+        <li>
+          <a href="/admin" aria-label="Open Admin and Config status">
+            <div class="label">
+              <strong>Admin / Config</strong>
+              <span>/admin</span>
+            </div>
+            <span class="arrow">→</span>
+          </a>
+        </li>
+        <li>
+          <a href="/health" aria-label="Open Health endpoint">
+            <div class="label">
+              <strong>Health</strong>
+              <span>/health</span>
+            </div>
+            <span class="arrow">→</span>
+          </a>
+        </li>
+      </ul>
+
+      <footer style="margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px;">
+        <span>© Team 4</span>
+      </footer>
+    </section>
+  </main>
 </body>
 </html>
