@@ -1,6 +1,12 @@
 document.getElementById("send").addEventListener("click", async () => {
   const msg = document.getElementById("msg").value.trim();
   const out = document.getElementById("out");
+
+  if (!msg) {
+    out.textContent = "Please type a message first.";
+    return;
+  }
+
   out.textContent = "Thinking...";
 
   try {
@@ -11,10 +17,12 @@ document.getElementById("send").addEventListener("click", async () => {
     });
 
     const data = await res.json();
+
     if (!res.ok) {
       out.textContent = data.error || "Request failed";
       return;
     }
+
     out.textContent = data.answer || "";
   } catch (e) {
     out.textContent = "Network error";
