@@ -1,14 +1,16 @@
 :root {
-  --bg: #0b1220;
-  --card: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.12);
-  --border2: rgba(255, 255, 255, 0.18);
-  --text: rgba(255, 255, 255, 0.92);
-  --muted: rgba(255, 255, 255, 0.70);
-  --muted2: rgba(255, 255, 255, 0.55);
-  --accent: #7c5cff;
-  --accent2: #28d7a5;
-  --danger: #ff6b6b;
+  /* Northeastern University Official Colors & Professional Palette */
+  --bg: #f4f6f8;             /* Light gray background for contrast */
+  --card: #ffffff;           /* Clean white cards */
+  --border: #d1d5db;         /* Standard gray border */
+  --border2: #9ca3af;        /* Darker gray for active borders */
+  --text: #111827;           /* Near black for high readability */
+  --muted: #4b5563;          /* Dark gray for secondary text */
+  --muted2: #6b7280;         /* Medium gray for hints */
+  --accent: #C8102E;         /* Official Northeastern Red */
+  --accent-hover: #a30d25;   /* Darker red for hover states */
+  --secondary: #000000;      /* Official Northeastern Black */
+  --danger: #dc2626;         /* Error red */
 }
 
 * { box-sizing: border-box; }
@@ -16,13 +18,14 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  /* Clean, academic typography */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(800px 400px at 20% 10%, rgba(124, 92, 255, 0.35), transparent 60%),
-    radial-gradient(700px 420px at 90% 20%, rgba(40, 215, 165, 0.25), transparent 55%),
-    radial-gradient(900px 500px at 50% 110%, rgba(255, 255, 255, 0.08), transparent 60%),
-    var(--bg);
+  /* Replaced the wild neon gradients with a professional, subtle top-bar accent */
+  background: var(--bg);
+  background-image: linear-gradient(to right, var(--secondary) 0%, var(--secondary) 100%);
+  background-size: 100% 6px; /* 6px black bar at the very top of the screen */
+  background-repeat: no-repeat;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -43,77 +46,68 @@ body.chat-layout {
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 28px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  /* Professional, subtle drop shadow instead of heavy glowing shadows */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 /* Global Typography & Indicators */
-h1 { margin: 0 0 6px 0; font-size: clamp(22px, 3vw, 30px); letter-spacing: 0.2px; line-height: 1.2; }
-h2 { margin: 0; font-size: 14px; color: var(--muted); font-weight: 650; letter-spacing: 0.2px; text-transform: uppercase; }
-.sub { margin: 8px 0 14px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+h1 { margin: 0 0 6px 0; font-size: clamp(22px, 3vw, 28px); letter-spacing: -0.5px; line-height: 1.2; font-weight: 700; color: var(--secondary); }
+h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+.sub { margin: 8px 0 14px; color: var(--muted); font-size: 15px; line-height: 1.5; }
 header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.dot { width: 10px; height: 10px; border-radius: 999px; background: var(--accent2); box-shadow: 0 0 0 4px rgba(40, 215, 165, 0.12); display: inline-block; margin-right: 8px; vertical-align: -1px; }
+
+/* The small status dot */
+.dot { width: 10px; height: 10px; border-radius: 999px; background: #10b981; display: inline-block; margin-right: 8px; vertical-align: -1px; }
 
 /* ============================
    Index Page Specifics
 ============================ */
-.pill { font-size: 12px; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.pill { font-size: 12px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; font-weight: 600; background: #f9fafb; }
 .links { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.links a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); text-decoration: none; color: var(--text); transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; }
-.links a:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.20); }
-.label { display: flex; flex-direction: column; gap: 2px; }
-.label strong { font-size: 14px; }
-.label span { font-size: 12px; color: var(--muted); }
-.arrow { opacity: 0.85; font-size: 16px; }
+.links a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); text-decoration: none; color: var(--text); transition: all 150ms ease; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+.links a:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 4px 12px rgba(200, 16, 46, 0.1); }
+.label { display: flex; flex-direction: column; gap: 4px; }
+.label strong { font-size: 15px; font-weight: 600; }
+.label span { font-size: 13px; color: var(--muted); }
+.arrow { opacity: 0.5; font-size: 18px; color: var(--accent); font-weight: bold; transition: opacity 150ms ease; }
+.links a:hover .arrow { opacity: 1; }
 
 /* ============================
    Chat Page Specifics
 ============================ */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; width: 100%; max-width: 980px; }
-.crumbs a { color: var(--muted); text-decoration: none; border-bottom: 1px dashed transparent; }
-.crumbs a:hover { color: var(--text); border-bottom-color: var(--border2); }
-.status { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 12px; background: rgba(255, 255, 255, 0.04); }
-.grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; }
-label { display: block; margin: 10px 0 8px; color: var(--muted); font-size: 13px; }
-textarea { width: 100%; min-height: 150px; resize: vertical; padding: 12px 12px; border-radius: 14px; border: 1px solid var(--border); background: rgba(0, 0, 0, 0.25); color: var(--text); outline: none; line-height: 1.4; }
-textarea:focus { border-color: rgba(124, 92, 255, 0.55); box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.16); }
-.actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.crumbs a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+.crumbs a:hover { color: var(--accent); text-decoration: underline; }
+.status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); color: var(--text); font-size: 12px; background: var(--card); font-weight: 500; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+label { display: block; margin: 10px 0 8px; color: var(--text); font-size: 14px; font-weight: 600; }
+
+textarea { width: 100%; min-height: 120px; resize: vertical; padding: 14px; border-radius: 8px; border: 1px solid var(--border); background: #ffffff; color: var(--text); outline: none; line-height: 1.5; font-size: 15px; font-family: inherit; transition: border-color 150ms ease; }
+textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.15); }
+
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
-button { appearance: none; border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; font-weight: 600; color: var(--text); background: rgba(255, 255, 255, 0.06); cursor: pointer; transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; }
-button:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.20); }
-#send.primary { border-color: rgba(124, 92, 255, 0.55); background: linear-gradient(135deg, rgba(124, 92, 255, 0.35), rgba(40, 215, 165, 0.18)); }
-#send.primary:disabled, button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* Button Resets */
+button { appearance: none; border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-weight: 600; font-size: 14px; color: var(--text); background: #ffffff; cursor: pointer; transition: all 150ms ease; font-family: inherit; }
+button:hover { background: #f9fafb; border-color: var(--border2); }
+button:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+/* Primary Button (Northeastern Red) */
+#send.primary { border-color: var(--accent); background: var(--accent); color: #ffffff; }
+#send.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Submit to Advisor Button (Northeastern Black) */
+#submitApp { background: var(--secondary) !important; border-color: var(--secondary) !important; color: #ffffff !important; }
+#submitApp:hover:not(:disabled) { background: #333333 !important; border-color: #333333 !important; }
+
 .hint { color: var(--muted2); font-size: 12px; }
-.panelTitle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-pre { margin: 0; min-height: 260px; white-space: pre-wrap; word-break: break-word; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: rgba(0, 0, 0, 0.25); color: var(--text); line-height: 1.45; }
-.smallbtn { padding: 8px 10px; border-radius: 12px; font-size: 12px; color: var(--muted); }
+.panelTitle { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.smallbtn { padding: 6px 12px; border-radius: 6px; font-size: 13px; color: var(--muted); background: #f9fafb; }
+.smallbtn:hover { color: var(--text); border-color: var(--border2); }
 .error { color: var(--danger); }
-
-/* ============================
-   Admin Page Specifics
-============================ */
-.status-pill { font-size: 12px; padding: 8px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
-.list { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; }
-.item { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); display: flex; justify-content: space-between; align-items: center; }
-.key { font-weight: 600; font-size: 14px; }
-.value { font-size: 13px; color: var(--muted); }
-.admin-footer { margin-top: 18px; display: flex; justify-content: space-between; align-items: center; }
-.admin-footer a { text-decoration: none; color: var(--text); border: 1px solid var(--border); padding: 8px 12px; border-radius: 10px; font-size: 13px; transition: background 120ms ease; }
-.admin-footer a:hover { background: rgba(255, 255, 255, 0.08); }
-
-/* ============================
-   Media Queries
-============================ */
-@media (max-width: 880px) {
-  .grid { grid-template-columns: 1fr; }
-  pre { min-height: 220px; }
-}
-@media (max-width: 640px) {
-  .card { padding: 22px; }
-  .links { grid-template-columns: 1fr; }
-}
 
 /* ============================
    Chat History & Bubbles
@@ -123,49 +117,78 @@ pre { margin: 0; min-height: 260px; white-space: pre-wrap; word-break: break-wor
   flex-direction: column;
   gap: 16px;
   min-height: 350px;
-  max-height: 500px; /* Forces it to scroll after it gets too tall */
+  max-height: 550px;
   overflow-y: auto;
   padding: 16px;
-  border-radius: 14px;
+  border-radius: 8px;
+  background: #f9fafb; /* Light gray container for the chat */
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.25);
 }
 
-/* Custom Scrollbar for the chat history */
 .chat-history::-webkit-scrollbar { width: 8px; }
 .chat-history::-webkit-scrollbar-track { background: transparent; }
-.chat-history::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+.chat-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.chat-history::-webkit-scrollbar-thumb:hover { background: var(--border2); }
 
-/* Individual Chat Bubbles */
 .msg-bubble {
   max-width: 85%;
-  padding: 12px 16px;
-  border-radius: 14px;
-  font-size: 14px;
-  line-height: 1.5;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
+/* User Message - Northeastern Red */
 .msg-user {
   align-self: flex-end;
-  background: var(--accent); /* Purple background for user */
-  color: #fff;
-  border-bottom-right-radius: 4px; /* Gives it a chat tail */
+  background: var(--accent);
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
 }
 
+/* AI Message - Clean White */
 .msg-ai {
   align-self: flex-start;
-  background: var(--card); /* Dark background for AI */
+  background: #ffffff;
   border: 1px solid var(--border);
   color: var(--text);
-  border-bottom-left-radius: 4px; /* Gives it a chat tail */
+  border-bottom-left-radius: 2px;
 }
 
 .msg-system {
   align-self: center;
-  font-size: 12px;
-  color: var(--muted2);
-  font-style: italic;
-  padding: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 500;
+  padding: 6px 12px;
+  background: rgba(0,0,0,0.04);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+/* ============================
+   Admin Page Specifics
+============================ */
+.status-pill { font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); color: var(--text); background: #f9fafb; font-weight: 600; }
+.list { list-style: none; padding: 0; margin: 18px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.item { padding: 14px 16px; border-radius: 8px; border: 1px solid var(--border); background: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+.key { font-weight: 600; font-size: 14px; color: var(--text); }
+.value { font-size: 14px; color: var(--muted); }
+.admin-footer { margin-top: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
+.admin-footer a { text-decoration: none; color: var(--text); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; transition: all 150ms ease; background: #ffffff; }
+.admin-footer a:hover { background: #f9fafb; border-color: var(--border2); }
+
+/* ============================
+   Media Queries
+============================ */
+@media (max-width: 880px) {
+  .grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .card { padding: 20px; }
+  .links { grid-template-columns: 1fr; }
 }
