@@ -48,58 +48,5 @@
   </main>
 
   <script src="/static/chat.js"></script>
-  <script>
-    // Moved specific UI logic here that doesn't belong in chat.js
-    const msgEl = document.getElementById("msg");
-    const outEl = document.getElementById("out");
-    const sendBtn = document.getElementById("send");
-    const clearBtn = document.getElementById("clear");
-    const copyBtn = document.getElementById("copy");
-    const statusText = document.getElementById("statusText");
-
-    function setStatus(text) { statusText.textContent = text; }
-    function setBusy(isBusy) {
-      sendBtn.disabled = isBusy;
-      msgEl.disabled = isBusy;
-      copyBtn.disabled = isBusy;
-      clearBtn.disabled = isBusy;
-      setStatus(isBusy ? "Thinking..." : "Ready");
-    }
-
-    // Attach to existing sendMessage logic from chat.js if needed or handle UI state
-    document.getElementById("send").addEventListener("click", () => setBusy(true));
-    
-    // Quick keybind logic
-    msgEl.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        sendBtn.click();
-      }
-    });
-
-    clearBtn.addEventListener("click", () => {
-      msgEl.value = "";
-      outEl.textContent = "Your answer will show up here…";
-      outEl.classList.remove("error");
-      msgEl.focus();
-    });
-
-    copyBtn.addEventListener("click", async () => {
-      const text = outEl.textContent || "";
-      try {
-        await navigator.clipboard.writeText(text);
-        const old = copyBtn.textContent;
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => (copyBtn.textContent = old), 900);
-      } catch {
-        const range = document.createRange();
-        range.selectNodeContents(outEl);
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
-        copyBtn.textContent = "Select & Copy";
-        setTimeout(() => (copyBtn.textContent = "Copy"), 1100);
-      }
-    });
-  </script>
 </body>
 </html>
