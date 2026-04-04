@@ -4,6 +4,10 @@
 
 name: Build and deploy Python app to Azure Web App - cpl-instructor-app-prod
 
+concurrency:
+  group: cpl-instructor-app-prod
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -73,4 +77,5 @@ jobs:
         with:
           app-name: 'cpl-instructor-app-prod'
           slot-name: 'Production'
+
           
