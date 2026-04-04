@@ -169,6 +169,8 @@ submitAppBtn.addEventListener("click", async () => {
       if (data.summary) {
         appendMessage("system", "Here is a copy of what was sent:\n\n" + data.summary);
       }
+      // Congratulations Pop-up Message
+      alert("Congratulations! Your CPL application has been successfully submitted to your advisor.");
     }
   } catch (e) {
     appendMessage("system", `❌ Network error during submission: ${e}`);

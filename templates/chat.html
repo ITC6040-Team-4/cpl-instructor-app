@@ -25,8 +25,14 @@
         <h1>CPL Chat Demo</h1>
         <p class="sub">Type a prompt and call Azure OpenAI through the Web App.</p>
 
-        <label for="msg">Your prompt</label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0 8px;">
+          <label for="msg" style="margin: 0;">Your prompt</label>
+          <button id="clear" class="smallbtn" type="button" style="margin: 0; padding: 4px 10px;">Clear</button>
+        </div>
+        
         <textarea id="msg" placeholder="Ask something... (Shift+Enter for newline)"></textarea>
+        
+        <div class="hint" style="margin-top: 8px; text-align: right;">Tip: Press <b>Ctrl/⌘ + Enter</b> to send</div>
 
         <div class="actions">
           <div class="btnrow">
@@ -34,10 +40,8 @@
             <button id="attachBtn" class="smallbtn" type="button" title="Upload files">📎 Attach</button>
 
             <button id="send" class="primary">Send</button>
-            <button id="clear" class="smallbtn" type="button">Clear</button>
-            <button id="submitApp" class="primary" style="background: var(--accent2); border-color: var(--accent2);" type="button">✉️ Submit to Advisor</button>
+            <button id="submitApp" class="primary" style="background: var(--secondary); border-color: var(--secondary);" type="button">✉️ Submit to Advisor</button>
           </div>
-          <div class="hint">Tip: Press <b>Ctrl/⌘ + Enter</b> to send</div>
         </div>
         
         <div id="filePreview" style="font-size: 13px; color: var(--accent2); margin-top: 12px; font-weight: 500;"></div>

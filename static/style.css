@@ -21,11 +21,9 @@ body {
   /* Clean, academic typography */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
-  /* Replaced the wild neon gradients with a professional, subtle top-bar accent */
-  background: var(--bg);
-  background-image: linear-gradient(to right, var(--secondary) 0%, var(--secondary) 100%);
-  background-size: 100% 6px; /* 6px black bar at the very top of the screen */
-  background-repeat: no-repeat;
+  /* NEW: Northeastern Image Background with a dark readability overlay */
+  background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/static/Image.jpeg') no-repeat center center fixed;
+  background-size: cover;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -53,10 +51,9 @@ body.chat-layout {
 }
 
 /* Global Typography & Indicators */
-h1 { margin: 0 0 6px 0; font-size: clamp(22px, 3vw, 28px); letter-spacing: -0.5px; line-height: 1.2; font-weight: 700; color: var(--secondary); }
-h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
-.sub { margin: 8px 0 14px; color: var(--muted); font-size: 15px; line-height: 1.5; }
-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.links a:hover { transform: translateY(-2px); border-color: #10b981; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15); }
+.arrow { opacity: 0.5; font-size: 18px; color: var(--accent); font-weight: bold; transition: opacity 150ms ease, color 150ms ease; }
+.links a:hover .arrow { opacity: 1; color: #10b981; }
 
 /* The small status dot */
 .dot { width: 10px; height: 10px; border-radius: 999px; background: #10b981; display: inline-block; margin-right: 8px; vertical-align: -1px; }
