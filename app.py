@@ -2,7 +2,7 @@ import os
 from flask import Flask, render_template, request, jsonify
 from openai import AzureOpenAI
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 
 def get_client():
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
