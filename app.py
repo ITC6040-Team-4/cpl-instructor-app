@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.get("/")
 def home():
-    return "CPL Instructor App is running ✅ (deployed from GitHub)"
+    return "CPL Instructor App is running ✅"
 
 # Azure/Gunicorn uses `app:app` (file:variable)
 if __name__ == "__main__":
