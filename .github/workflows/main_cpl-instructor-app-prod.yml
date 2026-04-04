@@ -29,19 +29,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Create venv and install dependencies (optional sanity check)
+      # Optional: quick sanity check (NO venv). This does not get deployed.
+      - name: Install dependencies (sanity check)
         run: |
-          python -m venv antenv
-          source antenv/bin/activate
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Upload the *source* (templates/static/app.py/etc.) as the deployment artifact
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            .
-            !antenv/
+          path: .
+          if-no-files-found: error
 
   deploy:
     runs-on: ubuntu-latest
@@ -59,19 +59,14 @@ jobs:
 
       - name: Debug - list artifact contents
         run: |
-          echo "PWD=$(pwd)"
-          echo "---- root ----"
-          ls -la
           echo "---- python-app ----"
           ls -la python-app
-          echo "---- python-app/templates ----"
+          echo "---- templates ----"
           ls -la python-app/templates || true
-          echo "---- python-app/static ----"
+          echo "---- static ----"
           ls -la python-app/static || true
-          echo "---- python-app/app.py size ----"
+          echo "---- app.py size ----"
           wc -c python-app/app.py || true
-          echo "---- python-app/requirements.txt ----"
-          cat python-app/requirements.txt || true
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -88,3 +83,4 @@ jobs:
           slot-name: Production
           package: python-app
           clean: true
+
