@@ -6,16 +6,71 @@ import PyPDF2
 import io
 import smtplib
 from email.message import EmailMessage
-
-# NEW: DB test imports
 import pyodbc
 
 
-# Explicit template folder for Azure App Service reliability
 app = Flask(__name__, template_folder="templates")
 
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "cpl-dev-secret-key-2026") # Required to use Flask sessions
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "cpl-dev-secret-key-2026")
 chat_memory = {}
+
+
+# ===============================
+# Usage Limiter
+# ===============================
+MAX_CHAT_REQUESTS = int(os.getenv("MAX_CHAT_REQUESTS", "300"))
+
+
+def ensure_usage_table():
+    conn_str = os.getenv("SQL_CONNECTION_STRING")
+    if not conn_str:
+        raise RuntimeError("Missing SQL_CONNECTION_STRING; usage limit cannot be enforced.")
+
+    conn = pyodbc.connect(conn_str, timeout=10)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        IF OBJECT_ID('dbo.usage_counter', 'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.usage_counter (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                route NVARCHAR(100) NOT NULL DEFAULT 'api_chat',
+                created_at DATETIME DEFAULT GETDATE()
+            );
+        END
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def get_usage_count():
+    ensure_usage_table()
+
+    conn = pyodbc.connect(os.getenv("SQL_CONNECTION_STRING"), timeout=10)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM dbo.usage_counter WHERE route = 'api_chat'")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return int(count)
+
+
+def increment_usage():
+    ensure_usage_table()
+
+    conn = pyodbc.connect(os.getenv("SQL_CONNECTION_STRING"), timeout=10)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO dbo.usage_counter (route) VALUES ('api_chat')")
+    conn.commit()
+    conn.close()
+
+
+def usage_limit_reached_message():
+    return (
+        "⚠️ This demo has reached its usage limit. "
+        "Please contact the project owner if you would like continued access."
+    )
+
 
 # ===============================
 # Azure OpenAI Client Factory
@@ -42,7 +97,7 @@ def get_client():
 
 
 # ===============================
-# Static File Route (bulletproof)
+# Static File Route
 # ===============================
 @app.get("/static/<path:filename>")
 def static_files(filename):
@@ -65,13 +120,19 @@ def chat_page():
 
 @app.get("/admin")
 def admin_page():
+    try:
+        usage_count = get_usage_count() if os.getenv("SQL_CONNECTION_STRING") else "N/A"
+    except Exception:
+        usage_count = "Unavailable"
+
     status = {
         "AZURE_OPENAI_ENDPOINT": "✅ set" if os.getenv("AZURE_OPENAI_ENDPOINT") else "❌ missing",
         "AZURE_OPENAI_API_KEY": "✅ set" if os.getenv("AZURE_OPENAI_API_KEY") else "❌ missing",
         "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION") or "(default: 2024-12-01-preview)",
         "AZURE_OPENAI_DEPLOYMENT": "✅ set" if os.getenv("AZURE_OPENAI_DEPLOYMENT") else "❌ missing",
-        # NEW: show whether SQL conn string is present (but never show its value)
         "SQL_CONNECTION_STRING": "✅ set" if os.getenv("SQL_CONNECTION_STRING") else "❌ missing",
+        "MAX_CHAT_REQUESTS": MAX_CHAT_REQUESTS,
+        "CURRENT_CHAT_REQUESTS": usage_count,
     }
     return render_template("admin.html", status=status)
 
@@ -82,8 +143,7 @@ def health():
 
 
 # ===============================
-# 🔍 DEBUG SUPERPOWER ROUTE
-# Shows SDK versions for troubleshooting
+# Versions Route
 # ===============================
 @app.get("/versions")
 def versions():
@@ -100,8 +160,7 @@ def versions():
 
 
 # ===============================
-# ✅ DB CHECK ROUTE
-# Verifies Web App can connect to Azure SQL
+# DB Check Route
 # ===============================
 @app.get("/dbcheck")
 def dbcheck():
@@ -110,7 +169,6 @@ def dbcheck():
         return jsonify({"error": "Missing SQL_CONNECTION_STRING"}), 500
 
     try:
-        # Keep it simple: open connection and run a tiny query
         conn = pyodbc.connect(conn_str, timeout=10)
         cursor = conn.cursor()
         cursor.execute("SELECT 1")
@@ -119,7 +177,6 @@ def dbcheck():
 
         return jsonify({"status": "DB Connected", "result": int(row[0])})
     except Exception as e:
-        # Log full traceback in Azure Log Stream
         app.logger.exception("DB connection check failed")
         return jsonify({
             "error": f"DB check failed: {type(e).__name__}",
@@ -133,23 +190,36 @@ def dbcheck():
 @app.post("/api/chat")
 def api_chat():
     try:
-        # 1. SWITCH TO FORM DATA PARSING
+        # Check usage before any Azure OpenAI call
+        try:
+            current_usage = get_usage_count()
+        except Exception:
+            app.logger.exception("Usage limiter failed")
+            return jsonify({
+                "answer": (
+                    "⚠️ This demo is temporarily unavailable because usage tracking could not be verified. "
+                    "Please contact the project owner."
+                )
+            }), 200
+
+        if current_usage >= MAX_CHAT_REQUESTS:
+            return jsonify({"answer": usage_limit_reached_message()}), 200
+
         user_message = (request.form.get("message") or "").strip()
         uploaded_file = request.files.get("file")
 
         if not user_message and not uploaded_file:
             return jsonify({"error": "Message or file is required"}), 400
 
-        # 2. EXTRACT TEXT FROM THE FILE
         file_text = ""
         if uploaded_file:
             filename = uploaded_file.filename.lower()
             file_bytes = uploaded_file.read()
-            
+
             try:
-                if filename.endswith(('.txt', '.csv', '.md')):
-                    file_text = file_bytes.decode('utf-8')
-                elif filename.endswith('.pdf'):
+                if filename.endswith((".txt", ".csv", ".md")):
+                    file_text = file_bytes.decode("utf-8")
+                elif filename.endswith(".pdf"):
                     pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
                     for page in pdf_reader.pages:
                         file_text += (page.extract_text() or "") + "\n"
@@ -158,10 +228,13 @@ def api_chat():
             except Exception as e:
                 return jsonify({"error": f"Failed to read file: {str(e)}"}), 400
 
-        # 3. BUNDLE FILE CONTENT WITH USER MESSAGE
         final_prompt = user_message
         if file_text:
-            final_prompt = f"[The user attached a document named '{uploaded_file.filename}']\n\nDOCUMENT CONTENT:\n{file_text}\n\nUSER MESSAGE:\n{user_message or 'Please review the attached document.'}"
+            final_prompt = (
+                f"[The user attached a document named '{uploaded_file.filename}']\n\n"
+                f"DOCUMENT CONTENT:\n{file_text}\n\n"
+                f"USER MESSAGE:\n{user_message or 'Please review the attached document.'}"
+            )
 
         deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
         if not deployment:
@@ -173,24 +246,25 @@ def api_chat():
 
         if "session_id" not in session:
             session["session_id"] = str(uuid.uuid4())
-        
+
         sid = session["session_id"]
 
         if sid not in chat_memory:
             chat_memory[sid] = [
                 {
-                    "role": "system", 
+                    "role": "system",
                     "content": (
                         "You are a master academic Evaluator Assistant for Northeastern University's Credit for Prior Learning (CPL) program. "
                         "You evaluate students for ALL colleges across Northeastern University.\n\n"
-                        
+
                         "YOUR FIRST TASK:\n"
-                        "You MUST begin the conversation by politely asking the student for their Full Name and Northeastern Student ID. Do not ask any interview questions until you have this information.\n\n"
+                        "You MUST begin the conversation by politely asking the student for their Full Name and Northeastern Student ID. "
+                        "Do not ask any interview questions until you have this information.\n\n"
 
                         "YOUR INTERVIEW KNOWLEDGE BASE:\n"
                         "Rely on your extensive pre-trained knowledge of standard university curricula. "
                         "When a student describes their professional background, dynamically identify specific Northeastern courses that align with their skills.\n\n"
-                        
+
                         "CRITICAL RULES YOU MUST STRICTLY FOLLOW:\n"
                         "- BE EXTREMELY CONCISE. Acknowledge the user's answer in a single short sentence. Do NOT summarize or repeat their previous answers back to them.\n"
                         "- MEANINGFUL FOLLOW-UP QUESTIONS: Ask EXACTLY ONE short, competency-based interview question at a time. Analyze the user's previous answer and ask highly specific follow-ups to probe the depth of their competency. Explicitly ask about 'measurable outcomes', 'challenges you solved', or specific 'tools and techniques used'.\n"
@@ -203,7 +277,6 @@ def api_chat():
                 }
             ]
 
-        # Use the final_prompt which contains the bundled file text
         chat_memory[sid].append({"role": "user", "content": final_prompt})
 
         response = client.chat.completions.create(
@@ -215,11 +288,15 @@ def api_chat():
         answer = (response.choices[0].message.content or "").strip()
         chat_memory[sid].append({"role": "assistant", "content": answer})
 
+        # Count only successful Azure OpenAI chat calls
+        increment_usage()
+
         return jsonify({"answer": answer})
 
     except Exception as e:
         app.logger.exception("Azure OpenAI call failed")
         return jsonify({"error": f"Azure OpenAI call failed: {type(e).__name__}"}), 500
+
 
 # ===============================
 # Finalize & Email Route
@@ -229,19 +306,24 @@ def submit_application():
     try:
         if "session_id" not in session or session["session_id"] not in chat_memory:
             return jsonify({"error": "No active chat history found to submit."}), 400
-        
+
         sid = session["session_id"]
         history = chat_memory[sid]
 
         client, err = get_client()
-        if err: return jsonify({"error": err}), 500
+        if err:
+            return jsonify({"error": err}), 500
+
         deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
 
-        # 1. Ask the AI to summarize the entire chat history into an email body
-        summary_prompt = list(history) # Copy the history
+        summary_prompt = list(history)
         summary_prompt.append({
-            "role": "user", 
-            "content": "The interview is over. Please read our entire conversation above and generate a formal email to the CPL Faculty Advisor. Extract the student's Name and Student ID. Summarize the evidence they provided, the documents they uploaded, and the specific academic areas their experience maps to. Do NOT include pleasantries like 'Sure, here is the email', just output the raw email text."
+            "role": "user",
+            "content": (
+                "The interview is over. Please read our entire conversation above and generate a formal email to the CPL Faculty Advisor. "
+                "Extract the student's Name and Student ID. Summarize the evidence they provided, the documents they uploaded, and the specific academic areas their experience maps to. "
+                "Do NOT include pleasantries like 'Sure, here is the email', just output the raw email text."
+            )
         })
 
         response = client.chat.completions.create(
@@ -251,26 +333,26 @@ def submit_application():
         )
         email_body = response.choices[0].message.content.strip()
 
-        # 2. Send the Email using Python's smtplib
-        advisor_email = os.getenv("ADVISOR_EMAIL", "your-email@gmail.com") # Where the email goes
-        bot_email = os.getenv("BOT_EMAIL") # The bot's email address
-        bot_password = os.getenv("BOT_EMAIL_PASSWORD") # App password
+        advisor_email = os.getenv("ADVISOR_EMAIL", "your-email@gmail.com")
+        bot_email = os.getenv("BOT_EMAIL")
+        bot_password = os.getenv("BOT_EMAIL_PASSWORD")
 
         if not bot_email or not bot_password:
-            # If you haven't set up the email keys yet, just print it to the terminal for testing
             print("\n--- SIMULATED EMAIL TO ADVISOR ---")
             print(email_body)
             print("----------------------------------\n")
-            return jsonify({"status": "Simulation successful. Check server logs for email text.", "summary": email_body})
+            return jsonify({
+                "status": "Simulation successful. Check server logs for email text.",
+                "summary": email_body
+            })
 
-        # Actual email sending logic (Requires Gmail App Password in .env)
         msg = EmailMessage()
         msg.set_content(email_body)
-        msg['Subject'] = "New CPL Application Ready for Review"
-        msg['From'] = bot_email
-        msg['To'] = advisor_email
+        msg["Subject"] = "New CPL Application Ready for Review"
+        msg["From"] = bot_email
+        msg["To"] = advisor_email
 
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         server.login(bot_email, bot_password)
         server.send_message(msg)
         server.quit()
@@ -280,6 +362,7 @@ def submit_application():
     except Exception as e:
         app.logger.exception("Failed to submit application")
         return jsonify({"error": str(e)}), 500
+
 
 # ===============================
 # Local Dev Entry Point
