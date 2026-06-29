@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CPL Chat</title>
+  <title>Echo — CPL Intake</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body class="chat-layout">
@@ -11,8 +11,8 @@
     <div class="topbar">
       <div class="crumbs">
         <a href="/">← Home</a>
-        <span style="color: var(--muted2); margin: 0 6px;">/</span>
-        <span style="color: var(--text);">Chat</span>
+        <span style="margin: 0 6px;">/</span>
+        <span>Intake</span>
       </div>
       <div class="status" id="statusPill" title="App status">
         <span class="dot" aria-hidden="true"></span>
@@ -20,45 +20,95 @@
       </div>
     </div>
 
-    <section class="grid">
-      <section class="card" aria-label="Chat input">
-        <h1>CPL Chat</h1>
-        <p class="sub">Please start by entering your NAME and NU-ID</p>
+    <!-- Identity gate -->
+    <section class="card" id="identityGate" aria-label="Start your case">
+      <h1>Start building your case</h1>
+      <p class="sub">Echo will help turn your experience into a credible, evidence-backed
+        case toward a course. First, tell us who you are.</p>
+      <div class="form-row">
+        <label for="nameInput">Full name</label>
+        <input id="nameInput" type="text" autocomplete="name" placeholder="e.g. Jordan Lee" />
+      </div>
+      <div class="form-row">
+        <label for="nuidInput">NU-ID</label>
+        <input id="nuidInput" type="text" autocomplete="off" placeholder="e.g. 001234567" />
+      </div>
+      <div id="gateError" class="error" role="alert" style="min-height: 18px;"></div>
+      <button id="startBtn" class="primary">Begin intake →</button>
+    </section>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0 8px;">
-          <label for="msg" style="margin: 0;">Your prompt</label>
-          <button id="clear" class="smallbtn" type="button" style="margin: 0; padding: 4px 10px;">Clear</button>
-        </div>
-        
-        <textarea id="msg" placeholder="Ask something... (Shift+Enter for newline)"></textarea>
-        
-        <div class="hint" style="margin-top: 8px; text-align: right;">Tip: Press <b>Ctrl/⌘ + Enter</b> to send</div>
-
-        <div class="actions">
-          <div class="btnrow">
-            <input type="file" id="fileUpload" accept=".txt,.csv,.md,.pdf" style="display: none;" />
-            <button id="attachBtn" class="smallbtn" type="button" title="Upload files">📎 Attach</button>
-
-            <button id="send" class="primary">Send</button>
-            <button id="submitApp" class="primary" style="background: var(--secondary); border-color: var(--secondary);" type="button">✉️ Submit to Advisor</button>
-          </div>
-        </div>
-        
-        <div id="filePreview" style="font-size: 13px; color: var(--accent2); margin-top: 12px; font-weight: 500;"></div>
-      </section>
-
-      <section class="card" aria-label="Chat response">
+    <!-- Two-pane workspace (hidden until a case exists) -->
+    <section class="workspace" id="workspace" hidden>
+      <!-- Conversation -->
+      <section class="card pane-chat" aria-label="Conversation with Echo">
         <div class="panelTitle">
-          <h2>Response History</h2>
+          <h2>Conversation with Echo</h2>
           <button id="copy" class="smallbtn" type="button">Copy All</button>
         </div>
-        <div id="chatHistory" class="chat-history">
-          <div class="msg-bubble msg-system">Session started. Your conversation history will appear here.</div>
+        <div id="chatHistory" class="chat-history" aria-live="polite"></div>
+
+        <div class="composer">
+          <textarea id="msg" placeholder="Describe your experience… (Shift+Enter for newline)"></textarea>
+          <div class="composer-row">
+            <span class="hint">Press <b>Ctrl/⌘ + Enter</b> to send</span>
+            <div class="btnrow">
+              <input type="file" id="fileUpload" accept=".pdf,.docx,.png,.jpg,.jpeg,.gif,.webp" style="display:none" />
+              <button id="attachBtn" class="smallbtn" type="button" title="Upload evidence">📎 Attach evidence</button>
+              <button id="send" class="primary">Send</button>
+            </div>
+          </div>
         </div>
       </section>
+
+      <!-- Live Case Record -->
+      <aside class="card pane-record" aria-label="Case Record">
+        <div class="record-head">
+          <div>
+            <div class="case-code mono" id="caseCode">CPL-…</div>
+            <span class="status-tag" id="caseStatus">Draft</span>
+          </div>
+          <div class="dial" id="dial" role="img" aria-label="Completion">
+            <span class="dial-pct mono" id="completionPct">0%</span>
+          </div>
+        </div>
+
+        <div class="record-field">
+          <label for="targetCourse">Target course</label>
+          <input id="targetCourse" type="text" placeholder="Not identified yet" />
+        </div>
+
+        <div class="record-field">
+          <label for="summary">Summary of experience</label>
+          <textarea id="summary" placeholder="Echo will draft this as you talk. You can edit it."></textarea>
+        </div>
+
+        <div class="record-field">
+          <div class="map-label">
+            <label>Competency Map</label>
+            <span class="map-legend"><i class="leg-mapped"></i> mapped &nbsp; <i class="leg-open"></i> open</span>
+          </div>
+          <div id="competencyMap" class="competency-map">
+            <p class="muted-empty">No competencies yet — keep describing your experience and they'll appear here as slots.</p>
+          </div>
+        </div>
+
+        <div class="record-field">
+          <label>Unsorted evidence</label>
+          <div id="unsortedEvidence" class="evidence-list">
+            <p class="muted-empty">Attach or drag a file here, then link it to a competency above.</p>
+          </div>
+        </div>
+
+        <button id="submitReview" class="primary submit-review" disabled
+                title="Available once your case is complete enough to submit.">
+          Submit for Review
+        </button>
+        <p class="hint" id="submitHint">Build your case toward the submit threshold to unlock.</p>
+      </aside>
     </section>
   </main>
 
-  <script src="/static/chat.js?v=5.0"></script>
+  <script src="/static/shell.js?v=1.0"></script>
+  <script src="/static/chat.js?v=6.0"></script>
 </body>
 </html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — CPL Reviewer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="chat-layout">
+  <main class="wrap wrap-chat">
+    <div class="topbar">
+      <div class="crumbs">
+        <a href="/reviewer">← Case Queue</a>
+        <span style="margin:0 6px;">/</span><span>Settings</span>
+      </div>
+      <div class="status"><span class="dot"></span><span>{{ reviewer_name }}</span></div>
+    </div>
+
+    <!-- Institution & thresholds -->
+    <section class="card settings-card">
+      <h2>Institution &amp; thresholds</h2>
+      <div class="form-row"><label for="institution_name">University name</label><input id="institution_name" type="text" /></div>
+      <div class="three-col">
+        <div class="form-row"><label for="draft_threshold">Draft-save %</label><input id="draft_threshold" type="number" min="0" max="100" /></div>
+        <div class="form-row"><label for="submit_threshold">Submit %</label><input id="submit_threshold" type="number" min="0" max="100" /></div>
+        <div class="form-row"><label for="delete_below_threshold">Delete-allowed below %</label><input id="delete_below_threshold" type="number" min="0" max="100" /></div>
+      </div>
+
+      <h2 style="margin-top:20px;">AI persona &amp; guardrails</h2>
+      <label class="check"><input type="checkbox" id="strict_domain" /> Strict domain mode (refuse off-topic)</label>
+      <label class="check"><input type="checkbox" id="require_evidence_links" /> Require evidence links for every competency</label>
+      <div class="form-row" style="margin-top:10px;">
+        <label for="system_prompt_addendum">System prompt addendum (appended to Echo)</label>
+        <textarea id="system_prompt_addendum" style="width:100%;min-height:80px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-family:inherit;"></textarea>
+      </div>
+      <button id="saveSettings" class="primary" style="border-color:var(--accent);background:var(--accent);color:#fff;">Save settings</button>
+      <span id="settingsSaved" class="hint" style="margin-left:10px;"></span>
+    </section>
+
+    <!-- Routing rules -->
+    <section class="card settings-card">
+      <h2>Workflow &amp; routing rules</h2>
+      <p class="hint">Applied automatically when a case is submitted.</p>
+      <div id="rulesList"></div>
+      <div class="rule-builder">
+        <select id="r_condition_type">
+          <option value="course_matches">Course matches</option>
+          <option value="confidence_below">Confidence below</option>
+        </select>
+        <input id="r_condition_value" placeholder="e.g. CS* or 60" />
+        <span class="rule-arrow">→</span>
+        <select id="r_action_type">
+          <option value="assign">Assign to</option>
+          <option value="flag">Flag as</option>
+        </select>
+        <input id="r_action_value" placeholder="e.g. Prof. Turing / Needs Advisor" />
+        <button id="addRule" class="smallbtn">Add rule</button>
+      </div>
+    </section>
+
+    <!-- Catalog / KB -->
+    <section class="card settings-card">
+      <h2>Course catalog &amp; knowledge base</h2>
+      <p class="hint">Grounds Echo's guidance. Types: course, policy, example.</p>
+      <div id="catalogList"></div>
+      <div class="catalog-builder">
+        <select id="c_type"><option>course</option><option>policy</option><option>example</option></select>
+        <input id="c_code" placeholder="Code / key" />
+        <input id="c_title" placeholder="Title" />
+        <textarea id="c_content" placeholder="Content used to ground Echo…"></textarea>
+        <button id="addCatalog" class="smallbtn">Add entry</button>
+      </div>
+    </section>
+
+    <!-- Demo tools -->
+    <section class="card settings-card">
+      <h2>Demo tools</h2>
+      <button id="resetSession" class="smallbtn danger-btn">Reset student session</button>
+      <span class="hint">Clears this browser's saved applicant identity only — cases remain in the database.</span>
+    </section>
+  </main>
+  <script src="/static/shell.js?v=1.0"></script>
+  <script src="/static/settings.js?v=1.0"></script>
+</body>
+</html>

@@ -25,3 +25,8 @@ __pycache__/
 
 # Logs
 *.log
+
+# Local dev SQLite database (Azure SQL is used in production)
+cpl_local.db
+*.sqlite
+*.sqlite3
