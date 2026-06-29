@@ -22,7 +22,7 @@ async function load() {
 
 function confidenceDial(v) {
   if (v == null) return '<span class="muted-date">—</span>';
-  const hue = v >= 70 ? "#10b981" : v >= 45 ? "#f59e0b" : "#dc2626";
+  const hue = v >= 70 ? "#2E5E54" : v >= 45 ? "#C08A2D" : "#B4502E";
   return `<span class="mini-dial" style="--pct:${v};--c:${hue}"></span><span class="mono">${v}</span>`;
 }
 

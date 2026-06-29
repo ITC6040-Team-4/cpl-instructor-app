@@ -57,26 +57,9 @@ function renderRecord(rec) {
   if (document.activeElement !== $("summary"))
     $("summary").value = c.summary || "";
 
-  // competencies
   const comps = rec.competencies || [];
   state.competencies = comps;
-  const cl = $("competencies");
-  if (!comps.length) {
-    cl.innerHTML = '<p class="muted-empty">No competencies claimed yet — keep describing your experience.</p>';
-  } else {
-    cl.innerHTML = "";
-    comps.forEach((comp) => {
-      const item = document.createElement("div");
-      item.className = "competency-item";
-      item.dataset.status = comp.mapping_status || "unlinked";
-      item.innerHTML = `<div class="comp-name">${escapeHtml(comp.name)}</div>
-        <div class="comp-desc">${escapeHtml(comp.description || "")}</div>
-        <span class="comp-state">${labelFor(comp.mapping_status)}</span>`;
-      cl.appendChild(item);
-    });
-  }
-
-  renderEvidence(rec.evidence || [], comps);
+  renderCompetencyMap(comps, rec.evidence || []);
 
   // submit gating + composer lock for non-draft cases
   const isDraft = c.status === "Draft";
@@ -95,45 +78,60 @@ function labelFor(status) {
   return { mapped: "Mapped", needs_review: "Needs Review", unlinked: "Unlinked" }[status] || "Unlinked";
 }
 
-function renderEvidence(evidence, comps) {
-  const el = $("evidence");
-  if (!evidence.length) {
-    el.innerHTML = '<p class="muted-empty">No evidence yet. Attach a file or drag one here.</p>';
-    return;
-  }
-  el.innerHTML = "";
-  evidence.forEach((ev) => {
-    const item = document.createElement("div");
-    item.className = "evidence-item";
-    item.dataset.status = ev.mapping_status || "unlinked";
+// The Competency Map: each competency is a slot; mapped evidence cards nest
+// inside their slot. Unlinked / suggested evidence waits in the unsorted tray.
+function renderCompetencyMap(comps, evidence) {
+  const map = $("competencyMap");
+  const tray = $("unsortedEvidence");
 
-    const compName = (comps.find((c) => c.id === ev.competency_id) || {}).name;
-    const options = comps.map((c) =>
-      `<option value="${c.id}" ${c.id === ev.competency_id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("");
-
-    let suggestionHtml = "";
-    if (ev.mapping_status !== "mapped" && ev.ai_suggested_competency) {
-      suggestionHtml = `<div class="suggestion">Suggested: <b>${escapeHtml(ev.ai_suggested_competency)}</b>
-        <button class="linklike" data-accept="${ev.id}" data-name="${escapeHtml(ev.ai_suggested_competency)}">Accept</button></div>`;
-    }
-
-    item.innerHTML = `
-      <div class="ev-head">
-        <span class="ev-name">${escapeHtml(ev.filename)}</span>
-        <span class="ev-size mono">${fmtSize(ev.size_bytes || 0)}</span>
-      </div>
-      <span class="comp-state">${labelFor(ev.mapping_status)}${compName ? " · " + escapeHtml(compName) : ""}</span>
-      ${suggestionHtml}
-      <div class="ev-actions">
-        <select data-link="${ev.id}" aria-label="Link to competency">
-          <option value="">— link to competency —</option>${options}
-        </select>
-        ${ev.competency_id ? `<button class="smallbtn" data-unlink="${ev.id}">Unlink</button>` : ""}
-        <a class="smallbtn" href="/api/evidence/${ev.id}/download" target="_blank" rel="noopener">View</a>
-        <button class="smallbtn danger-btn" data-del="${ev.id}">Delete</button>
+  if (!comps.length) {
+    map.innerHTML = '<p class="muted-empty">No competencies yet — keep describing your experience and they\'ll appear here as slots.</p>';
+  } else {
+    map.innerHTML = comps.map((comp) => {
+      const mapped = evidence.filter((e) => e.competency_id === comp.id);
+      const filled = comp.mapping_status === "mapped";
+      const cards = mapped.map((e) => evidenceCard(e, true)).join("");
+      return `<div class="comp-slot ${filled ? "filled" : ""}" data-status="${comp.mapping_status || "unlinked"}">
+        <div class="slot-head">
+          <span class="slot-name">${escapeHtml(comp.name)}</span>
+          <span class="slot-state">${filled ? "✓ Mapped" : "Open slot"}</span>
+        </div>
+        ${comp.description ? `<div class="slot-desc">${escapeHtml(comp.description)}</div>` : ""}
+        <div class="slot-evidence">${cards || '<span class="slot-empty">No evidence linked yet</span>'}</div>
       </div>`;
-    el.appendChild(item);
-  });
+    }).join("");
+  }
+
+  const unsorted = evidence.filter((e) => !e.competency_id);
+  if (!unsorted.length) {
+    tray.innerHTML = '<p class="muted-empty">All evidence is linked. Attach or drag a new file to add more.</p>';
+  } else {
+    tray.innerHTML = unsorted.map((ev) => {
+      const options = comps.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+      const suggestion = ev.ai_suggested_competency
+        ? `<div class="suggestion">Echo suggests <b>${escapeHtml(ev.ai_suggested_competency)}</b>
+            <button class="linklike" data-accept="${ev.id}" data-name="${escapeHtml(ev.ai_suggested_competency)}">Accept</button></div>` : "";
+      return `<div class="evidence-item" data-status="${ev.mapping_status || "unlinked"}" draggable="false">
+        <div class="ev-head"><span class="ev-name">${escapeHtml(ev.filename)}</span>
+          <span class="ev-size mono">${fmtSize(ev.size_bytes || 0)}</span></div>
+        ${suggestion}
+        <div class="ev-actions">
+          <select data-link="${ev.id}" aria-label="Link to competency">
+            <option value="">— link to competency —</option>${options}</select>
+          <a class="smallbtn" href="/api/evidence/${ev.id}/download" target="_blank" rel="noopener">View</a>
+          <button class="smallbtn danger-btn" data-del="${ev.id}">Delete</button>
+        </div></div>`;
+    }).join("");
+  }
+}
+
+function evidenceCard(ev, withUnlink) {
+  return `<div class="ev-card">
+    <span class="ev-card-name">${escapeHtml(ev.filename)}</span>
+    <span class="ev-card-actions">
+      <a href="/api/evidence/${ev.id}/download" target="_blank" rel="noopener" title="View">↗</a>
+      ${withUnlink ? `<button data-unlink="${ev.id}" title="Unlink">×</button>` : ""}
+    </span></div>`;
 }
 
 function escapeHtml(s) {
@@ -322,17 +320,16 @@ if (recordPane) {
   });
 }
 
-// delegated evidence actions
-$("evidence").addEventListener("click", async (e) => {
-  const t = e.target;
+// delegated evidence actions across the Competency Map + unsorted tray
+recordPane.addEventListener("click", async (e) => {
+  const t = e.target.closest("[data-accept],[data-unlink],[data-del]");
+  if (!t) return;
   if (t.dataset.accept) return mapEvidence(t.dataset.accept, findCompId(t.dataset.name));
   if (t.dataset.unlink) return evidenceAction(`/api/evidence/${t.dataset.unlink}/unlink`, "POST");
-  if (t.dataset.del) {
-    if (confirm("Delete this evidence file?"))
-      return evidenceAction(`/api/evidence/${t.dataset.del}`, "DELETE");
-  }
+  if (t.dataset.del && confirm("Delete this evidence file?"))
+    return evidenceAction(`/api/evidence/${t.dataset.del}`, "DELETE");
 });
-$("evidence").addEventListener("change", (e) => {
+recordPane.addEventListener("change", (e) => {
   if (e.target.dataset.link && e.target.value)
     mapEvidence(e.target.dataset.link, e.target.value);
 });
