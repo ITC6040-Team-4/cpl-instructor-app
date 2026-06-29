@@ -7,8 +7,8 @@ import io
 import smtplib
 from email.message import EmailMessage
 
-# NEW: DB test imports
-import pyodbc
+# Persistence layer (Azure SQL via pyodbc in prod, SQLite fallback for local dev)
+import db
 
 
 # Explicit template folder for Azure App Service reliability
@@ -16,6 +16,15 @@ app = Flask(__name__, template_folder="templates")
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "cpl-dev-secret-key-2026") # Required to use Flask sessions
 chat_memory = {}
+
+# Initialize the database schema + seed on startup. Guarded so a transient DB
+# outage degrades gracefully (routes that need the DB will surface their own
+# errors) rather than crashing the whole worker on boot.
+try:
+    db.init_db()
+    app.logger.info("Database initialized (backend=%s)", db.backend())
+except Exception:
+    app.logger.exception("Database initialization failed at startup")
 
 # ===============================
 # Azure OpenAI Client Factory
@@ -105,19 +114,13 @@ def versions():
 # ===============================
 @app.get("/dbcheck")
 def dbcheck():
-    conn_str = os.getenv("SQL_CONNECTION_STRING")
-    if not conn_str:
-        return jsonify({"error": "Missing SQL_CONNECTION_STRING"}), 500
-
     try:
-        # Keep it simple: open connection and run a tiny query
-        conn = pyodbc.connect(conn_str, timeout=10)
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        row = cursor.fetchone()
-        conn.close()
-
-        return jsonify({"status": "DB Connected", "result": int(row[0])})
+        row = db.query_one("SELECT 1 AS result")
+        return jsonify({
+            "status": "DB Connected",
+            "result": int(row["result"]),
+            "backend": db.backend(),
+        })
     except Exception as e:
         # Log full traceback in Azure Log Stream
         app.logger.exception("DB connection check failed")
