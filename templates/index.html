@@ -3,57 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Team 4 - CPL Application</title>
+  <title>CPL — Credit for Prior Learning</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main class="wrap wrap-index">
-    <section class="card" role="region" aria-label="App status and links">
-      <header>
+    <header class="shell-head">
+      <div class="brand">
+        <span class="brand-seal" aria-hidden="true">CPL</span>
         <div>
-          <h1>Team 4 CPL App</h1>
-          <p class="sub">
-            <span class="dot"></span>
-            Running successfully — pick a page to continue.
-          </p>
+          <strong id="instName">NUPathway</strong>
+          <span class="brand-sub">Credit for Prior Learning</span>
         </div>
-        <div class="pill">Status: OK</div>
-      </header>
+      </div>
+      <div class="role-switch" role="group" aria-label="Choose your role">
+        <span class="role-active">Applicant</span>
+        <a href="/reviewer" class="role-alt">Switch to Reviewer
+          <span class="queue-badge" data-queue-badge hidden>0</span></a>
+      </div>
+    </header>
 
-      <ul class="links">
-        <li>
-          <a href="/chat" aria-label="Open CPL Chat">
-            <div class="label">
-              <strong>CPL Chat</strong>
-              <span>/chat</span>
-            </div>
-            <span class="arrow">→</span>
-          </a>
-        </li>
-        <li>
-          <a href="/admin" aria-label="Open Admin and Config status">
-            <div class="label">
-              <strong>Admin / Config</strong>
-              <span>/admin</span>
-            </div>
-            <span class="arrow">→</span>
-          </a>
-        </li>
-        <li>
-          <a href="/health" aria-label="Open Health endpoint">
-            <div class="label">
-              <strong>Health</strong>
-              <span>/health</span>
-            </div>
-            <span class="arrow">→</span>
-          </a>
-        </li>
-      </ul>
+    <section class="card hero-card">
+      <p class="eyebrow">What you already know counts</p>
+      <h1 class="hero-title">Turn your experience into academic credit.</h1>
+      <p class="sub">Describe your professional and lived experience. Echo, your intake
+        assistant, helps assemble an evidence-backed case toward a specific course —
+        then faculty review it.</p>
 
-      <footer style="margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px;">
-        <span>© Team 4</span>
-      </footer>
+      <div class="chips">
+        <a class="chip chip-primary" href="/chat">✦ Start a new evaluation</a>
+        <a class="chip" href="/chat">⬆ Upload my evidence</a>
+        <button class="chip" id="howChip" type="button">? How does this work</button>
+        <a class="chip" id="resumeChip" href="/history">↺ Resume my draft</a>
+      </div>
+      <p class="hint cmd-hint">Tip: press <b>⌘K</b> (or Ctrl+K) anywhere for quick actions.</p>
     </section>
+
+    <ul class="links">
+      <li><a href="/chat"><div class="label"><strong>Intake with Echo</strong><span>Build your case</span></div><span class="arrow">→</span></a></li>
+      <li><a href="/history"><div class="label"><strong>Case History</strong><span>Track your cases</span></div><span class="arrow">→</span></a></li>
+      <li><a href="/reviewer"><div class="label"><strong>Reviewer Portal</strong><span>Faculty &amp; advisors</span></div><span class="arrow">→</span></a></li>
+    </ul>
+
+    <footer class="sys-links">
+      <a href="/admin">Config Status</a>
+      <a href="/health">Health</a>
+      <a href="/dbcheck">DB Check</a>
+      <span class="spacer"></span>
+      <span>© {{ '' }}NUPathway CPL</span>
+    </footer>
   </main>
+
+  <div id="howModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="How it works">
+      <button class="modal-close" id="howClose" aria-label="Close">×</button>
+      <h2 style="text-transform:none;font-size:20px;color:var(--secondary);">How it works</h2>
+      <ol class="how-list">
+        <li><b>Describe your experience.</b> Chat with Echo about your professional and lived background.</li>
+        <li><b>Name a target course.</b> Echo helps map your skills to a specific course and its competencies.</li>
+        <li><b>Add evidence.</b> Upload certificates, transcripts, or work artifacts and link each to a competency.</li>
+        <li><b>Submit for review.</b> When your case is strong enough, send it to faculty for a decision.</li>
+      </ol>
+      <a href="/chat" class="as-btn">Start now →</a>
+    </div>
+  </div>
+
+  <script src="/static/shell.js?v=1.0"></script>
+  <script>
+    fetch("/api/public-settings").then(r => r.json()).then(s => {
+      if (s.institution_name) { document.getElementById("instName").textContent = s.institution_name; }
+    }).catch(() => {});
+    try {
+      const id = JSON.parse(localStorage.getItem("cpl_identity") || "null");
+      if (id && id.nuid) document.getElementById("resumeChip").href = "/history";
+    } catch (e) {}
+    const m = document.getElementById("howModal");
+    document.getElementById("howChip").addEventListener("click", () => m.hidden = false);
+    document.getElementById("howClose").addEventListener("click", () => m.hidden = true);
+    m.addEventListener("click", (e) => { if (e.target === m) m.hidden = true; });
+  </script>
 </body>
 </html>
