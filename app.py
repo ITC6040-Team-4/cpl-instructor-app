@@ -400,6 +400,114 @@ def post_message(case_id):
 
 
 # ===============================
+# Evidence API (Phase 3)
+# ===============================
+import storage
+
+
+@app.post("/api/cases/<int:case_id>/evidence")
+def upload_evidence(case_id):
+    case = services.get_case(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "No file provided"}), 400
+
+    data = f.read()
+    ok, err = storage.validate(f.filename, len(data))
+    if not ok:
+        return jsonify({"error": err}), 400
+
+    try:
+        stored = storage.save(case_id, f.filename, data, f.mimetype)
+    except Exception:
+        app.logger.exception("evidence save failed")
+        return jsonify({"error": "Could not store the file."}), 500
+
+    extracted = storage.extract_text(f.filename, data, f.mimetype)
+    eid = services.add_evidence(case_id, f.filename, len(data), f.mimetype, stored, extracted)
+
+    # AI mapping suggestion against current competencies (best-effort).
+    suggestion = None
+    comps = services.get_competencies(case_id)
+    if comps:
+        try:
+            sug, sug_err = ai.suggest_mapping(f.filename, extracted, comps)
+            if sug and not sug_err and sug.get("competency"):
+                suggestion = sug.get("competency")
+                services.set_evidence_suggestion(eid, suggestion)
+        except Exception:
+            app.logger.exception("mapping suggestion failed (non-fatal)")
+
+    services.recompute_completion(case_id)
+    rec = _case_record(case_id)
+    rec["uploaded_id"] = eid
+    rec["suggestion"] = suggestion
+    return jsonify(rec)
+
+
+@app.post("/api/evidence/<int:eid>/link")
+def link_evidence_api(eid):
+    row = services.get_evidence_row(eid)
+    if not row:
+        return jsonify({"error": "Evidence not found"}), 404
+    data = request.get_json(silent=True) or {}
+    comp_id = data.get("competency_id")
+    if not comp_id:
+        return jsonify({"error": "competency_id required"}), 400
+    comp = db.query_one("SELECT id FROM competencies WHERE id = ? AND case_id = ?",
+                        [comp_id, row["case_id"]])
+    if not comp:
+        return jsonify({"error": "Competency not found for this case"}), 400
+    services.link_evidence(eid, comp_id)
+    services.recompute_completion(row["case_id"])
+    return jsonify(_case_record(row["case_id"]))
+
+
+@app.post("/api/evidence/<int:eid>/unlink")
+def unlink_evidence_api(eid):
+    row = services.get_evidence_row(eid)
+    if not row:
+        return jsonify({"error": "Evidence not found"}), 404
+    services.unlink_evidence(eid)
+    services.recompute_completion(row["case_id"])
+    return jsonify(_case_record(row["case_id"]))
+
+
+@app.delete("/api/evidence/<int:eid>")
+def delete_evidence_api(eid):
+    row = services.get_evidence_row(eid)
+    if not row:
+        return jsonify({"error": "Evidence not found"}), 404
+    try:
+        storage.delete(row)
+    except Exception:
+        app.logger.exception("storage delete failed (continuing)")
+    services.delete_evidence(eid)
+    services.recompute_completion(row["case_id"])
+    return jsonify(_case_record(row["case_id"]))
+
+
+@app.get("/api/evidence/<int:eid>/download")
+def download_evidence(eid):
+    row = services.get_evidence_row(eid)
+    if not row:
+        return jsonify({"error": "Evidence not found"}), 404
+    # Reviewer-gated access to others' files is enforced once auth lands (Phase 5);
+    # applicants can fetch their own case evidence.
+    try:
+        data = storage.get_bytes(row)
+    except Exception:
+        app.logger.exception("evidence download failed")
+        return jsonify({"error": "Could not retrieve the file."}), 500
+    from flask import Response
+    resp = Response(data, mimetype=row.get("mime_type") or "application/octet-stream")
+    resp.headers["Content-Disposition"] = f'inline; filename="{row.get("filename")}"'
+    return resp
+
+
+# ===============================
 # Local Dev Entry Point
 # ===============================
 if __name__ == "__main__":

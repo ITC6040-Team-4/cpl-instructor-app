@@ -201,6 +201,7 @@ def _ddl():
                 mime_type {S(128)},
                 storage_url {S(1024)},
                 storage_kind {S(20)},
+                inline_data {TXT},
                 extracted_text {TXT},
                 competency_id {INT},
                 mapping_status {S(20)},
@@ -261,6 +262,31 @@ def _table_exists(cur, name):
     return cur.fetchone() is not None
 
 
+# Columns added after the initial schema; ensured on every boot so redeploys
+# against an existing database pick them up without a manual migration.
+_ADDED_COLUMNS = [
+    ("evidence", "inline_data"),
+]
+
+
+def _column_exists(cur, table, column):
+    if backend() == "sqlserver":
+        cur.execute(
+            "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
+            [table, column])
+        return cur.fetchone() is not None
+    else:
+        cur.execute(f"PRAGMA table_info({table})")
+        return any(row[1] == column for row in cur.fetchall())
+
+
+def _ensure_columns(cur):
+    TXT = "NVARCHAR(MAX)" if backend() == "sqlserver" else "TEXT"
+    for table, column in _ADDED_COLUMNS:
+        if not _column_exists(cur, table, column):
+            cur.execute(f"ALTER TABLE {table} ADD {column} {TXT}")
+
+
 def init_db():
     """Create tables if absent and seed defaults. Idempotent; safe on every boot."""
     global _initialized
@@ -273,6 +299,7 @@ def init_db():
             for name, ddl in _ddl():
                 if not _table_exists(cur, name):
                     cur.execute(ddl)
+            _ensure_columns(cur)
             conn.commit()
         finally:
             conn.close()

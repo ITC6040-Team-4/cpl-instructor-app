@@ -6,7 +6,14 @@ const $ = (id) => document.getElementById(id);
 const state = {
   caseId: null,
   submitThreshold: 80,
+  competencies: [],
 };
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
 
 // ---------- helpers ----------
 function setStatus(text) { $("statusText").textContent = text; }
@@ -52,6 +59,7 @@ function renderRecord(rec) {
 
   // competencies
   const comps = rec.competencies || [];
+  state.competencies = comps;
   const cl = $("competencies");
   if (!comps.length) {
     cl.innerHTML = '<p class="muted-empty">No competencies claimed yet — keep describing your experience.</p>';
@@ -68,6 +76,8 @@ function renderRecord(rec) {
     });
   }
 
+  renderEvidence(rec.evidence || [], comps);
+
   // submit gating
   const canSubmit = pct >= state.submitThreshold && c.status === "Draft";
   $("submitReview").disabled = !canSubmit;
@@ -78,6 +88,47 @@ function renderRecord(rec) {
 
 function labelFor(status) {
   return { mapped: "Mapped", needs_review: "Needs Review", unlinked: "Unlinked" }[status] || "Unlinked";
+}
+
+function renderEvidence(evidence, comps) {
+  const el = $("evidence");
+  if (!evidence.length) {
+    el.innerHTML = '<p class="muted-empty">No evidence yet. Attach a file or drag one here.</p>';
+    return;
+  }
+  el.innerHTML = "";
+  evidence.forEach((ev) => {
+    const item = document.createElement("div");
+    item.className = "evidence-item";
+    item.dataset.status = ev.mapping_status || "unlinked";
+
+    const compName = (comps.find((c) => c.id === ev.competency_id) || {}).name;
+    const options = comps.map((c) =>
+      `<option value="${c.id}" ${c.id === ev.competency_id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("");
+
+    let suggestionHtml = "";
+    if (ev.mapping_status !== "mapped" && ev.ai_suggested_competency) {
+      suggestionHtml = `<div class="suggestion">Suggested: <b>${escapeHtml(ev.ai_suggested_competency)}</b>
+        <button class="linklike" data-accept="${ev.id}" data-name="${escapeHtml(ev.ai_suggested_competency)}">Accept</button></div>`;
+    }
+
+    item.innerHTML = `
+      <div class="ev-head">
+        <span class="ev-name">${escapeHtml(ev.filename)}</span>
+        <span class="ev-size mono">${fmtSize(ev.size_bytes || 0)}</span>
+      </div>
+      <span class="comp-state">${labelFor(ev.mapping_status)}${compName ? " · " + escapeHtml(compName) : ""}</span>
+      ${suggestionHtml}
+      <div class="ev-actions">
+        <select data-link="${ev.id}" aria-label="Link to competency">
+          <option value="">— link to competency —</option>${options}
+        </select>
+        ${ev.competency_id ? `<button class="smallbtn" data-unlink="${ev.id}">Unlink</button>` : ""}
+        <a class="smallbtn" href="/api/evidence/${ev.id}/download" target="_blank" rel="noopener">View</a>
+        <button class="smallbtn danger-btn" data-del="${ev.id}">Delete</button>
+      </div>`;
+    el.appendChild(item);
+  });
 }
 
 function escapeHtml(s) {
@@ -178,3 +229,83 @@ $("copy").addEventListener("click", async () => {
 $("submitReview").addEventListener("click", () => {
   alert("Submit for Review unlocks in the next build step.");
 });
+
+// ---------- evidence ----------
+async function uploadEvidence(file) {
+  if (!file || !state.caseId) return;
+  setStatus("Uploading…");
+  const note = appendMessage("system", `Uploading ${file.name}…`);
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const res = await fetch(`/api/cases/${state.caseId}/evidence`, { method: "POST", body: fd });
+    const data = await res.json();
+    note.remove();
+    if (!res.ok) { appendMessage("system", `Upload failed: ${data.error}`); return; }
+    renderRecord(data);
+    appendMessage("system", data.suggestion
+      ? `Added ${file.name}. Echo suggests linking it to “${data.suggestion}.”`
+      : `Added ${file.name}.`);
+  } catch (e) {
+    note.remove();
+    appendMessage("system", `Upload error: ${e.message}`);
+  } finally {
+    setStatus("Ready");
+  }
+}
+
+$("attachBtn").addEventListener("click", () => $("fileUpload").click());
+$("fileUpload").addEventListener("change", (e) => {
+  if (e.target.files[0]) uploadEvidence(e.target.files[0]);
+  e.target.value = "";
+});
+
+// drag-and-drop onto the Case Record panel
+const recordPane = document.querySelector(".pane-record");
+if (recordPane) {
+  ["dragover", "dragenter"].forEach((ev) =>
+    recordPane.addEventListener(ev, (e) => { e.preventDefault(); recordPane.classList.add("dragging"); }));
+  ["dragleave", "drop"].forEach((ev) =>
+    recordPane.addEventListener(ev, (e) => { e.preventDefault(); recordPane.classList.remove("dragging"); }));
+  recordPane.addEventListener("drop", (e) => {
+    const f = e.dataTransfer.files[0];
+    if (f) uploadEvidence(f);
+  });
+}
+
+// delegated evidence actions
+$("evidence").addEventListener("click", async (e) => {
+  const t = e.target;
+  if (t.dataset.accept) return mapEvidence(t.dataset.accept, findCompId(t.dataset.name));
+  if (t.dataset.unlink) return evidenceAction(`/api/evidence/${t.dataset.unlink}/unlink`, "POST");
+  if (t.dataset.del) {
+    if (confirm("Delete this evidence file?"))
+      return evidenceAction(`/api/evidence/${t.dataset.del}`, "DELETE");
+  }
+});
+$("evidence").addEventListener("change", (e) => {
+  if (e.target.dataset.link && e.target.value)
+    mapEvidence(e.target.dataset.link, e.target.value);
+});
+
+function findCompId(name) {
+  const c = state.competencies.find((x) => x.name === name);
+  return c ? c.id : null;
+}
+
+async function mapEvidence(eid, compId) {
+  if (!compId) return;
+  try {
+    const rec = await api(`/api/evidence/${eid}/link`, {
+      method: "POST", body: JSON.stringify({ competency_id: Number(compId) }),
+    });
+    renderRecord(rec);
+  } catch (e) { setStatus("Link failed"); }
+}
+
+async function evidenceAction(url, method) {
+  try {
+    const rec = await api(url, { method });
+    renderRecord(rec);
+  } catch (e) { setStatus("Action failed"); }
+}

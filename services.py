@@ -162,7 +162,67 @@ def get_competencies(case_id):
 
 def get_evidence(case_id):
     return db.query(
-        "SELECT * FROM evidence WHERE case_id = ? ORDER BY id", [case_id])
+        "SELECT id, case_id, filename, size_bytes, mime_type, storage_url, "
+        "storage_kind, competency_id, mapping_status, ai_suggested_competency, "
+        "created_at FROM evidence WHERE case_id = ? ORDER BY id", [case_id])
+
+
+def get_evidence_row(evidence_id):
+    """Full row including inline_data and extracted_text (for download/AI)."""
+    return db.query_one("SELECT * FROM evidence WHERE id = ?", [evidence_id])
+
+
+def add_evidence(case_id, filename, size_bytes, mime, stored, extracted_text):
+    return db.insert(
+        """INSERT INTO evidence
+           (case_id, filename, size_bytes, mime_type, storage_url, storage_kind,
+            inline_data, extracted_text, competency_id, mapping_status,
+            ai_suggested_competency, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'unlinked', NULL, ?)""",
+        [case_id, filename, size_bytes, mime, stored["storage_url"],
+         stored["storage_kind"], stored.get("inline_data"), extracted_text,
+         db.now_iso()])
+
+
+def set_evidence_suggestion(evidence_id, competency_name):
+    status = "needs_review" if competency_name else "unlinked"
+    db.execute("UPDATE evidence SET ai_suggested_competency = ?, mapping_status = ? "
+               "WHERE id = ?", [competency_name, status, evidence_id])
+
+
+def link_evidence(evidence_id, competency_id):
+    db.execute("UPDATE evidence SET competency_id = ?, mapping_status = 'mapped' "
+               "WHERE id = ?", [competency_id, evidence_id])
+    _sync_competency_status(competency_id)
+
+
+def unlink_evidence(evidence_id):
+    row = get_evidence_row(evidence_id)
+    old_comp = row.get("competency_id") if row else None
+    db.execute("UPDATE evidence SET competency_id = NULL, mapping_status = 'unlinked' "
+               "WHERE id = ?", [evidence_id])
+    if old_comp:
+        _sync_competency_status(old_comp)
+
+
+def delete_evidence(evidence_id):
+    row = get_evidence_row(evidence_id)
+    comp = row.get("competency_id") if row else None
+    db.execute("DELETE FROM evidence WHERE id = ?", [evidence_id])
+    if comp:
+        _sync_competency_status(comp)
+
+
+def _sync_competency_status(competency_id):
+    """A competency is 'mapped' if any evidence links to it, else 'unlinked'."""
+    if not competency_id:
+        return
+    row = db.query_one(
+        "SELECT COUNT(*) AS c FROM evidence WHERE competency_id = ? AND mapping_status = 'mapped'",
+        [competency_id])
+    status = "mapped" if (row and row["c"] > 0) else "unlinked"
+    db.execute("UPDATE competencies SET mapping_status = ? WHERE id = ?",
+               [status, competency_id])
 
 
 # ---------------------------------------------------------------------------

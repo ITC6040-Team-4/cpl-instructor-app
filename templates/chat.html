@@ -51,7 +51,11 @@
           <textarea id="msg" placeholder="Describe your experience… (Shift+Enter for newline)"></textarea>
           <div class="composer-row">
             <span class="hint">Press <b>Ctrl/⌘ + Enter</b> to send</span>
-            <button id="send" class="primary">Send</button>
+            <div class="btnrow">
+              <input type="file" id="fileUpload" accept=".pdf,.docx,.png,.jpg,.jpeg,.gif,.webp" style="display:none" />
+              <button id="attachBtn" class="smallbtn" type="button" title="Upload evidence">📎 Attach evidence</button>
+              <button id="send" class="primary">Send</button>
+            </div>
           </div>
         </div>
       </section>

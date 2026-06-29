@@ -260,6 +260,23 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important;
 .comp-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .comp-state { position: absolute; top: 10px; right: 12px; font-size: 11px; font-weight: 600; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.4px; }
 
+/* evidence items */
+.pane-record.dragging { outline: 2px dashed var(--accent); outline-offset: 4px; }
+.evidence-item { border: 1px solid var(--border); border-left: 3px solid var(--border2); border-radius: 8px; padding: 10px 12px; }
+.evidence-item[data-status="mapped"] { border-left-color: #10b981; }
+.evidence-item[data-status="needs_review"] { border-left-color: #f59e0b; }
+.ev-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ev-name { font-weight: 600; font-size: 13px; word-break: break-word; }
+.ev-size { font-size: 11px; color: var(--muted2); flex: none; }
+.evidence-item .comp-state { position: static; display: inline-block; margin-top: 4px; }
+.suggestion { font-size: 12px; color: var(--muted); background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 5px 8px; margin-top: 6px; }
+.linklike { background: none; border: none; color: var(--accent); font-weight: 600; cursor: pointer; padding: 0 0 0 4px; font-size: 12px; }
+.ev-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+.ev-actions select { flex: 1; min-width: 140px; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border); font-size: 12px; font-family: inherit; }
+.ev-actions .smallbtn { padding: 5px 9px; font-size: 12px; text-decoration: none; }
+.danger-btn { color: var(--danger); }
+.danger-btn:hover { border-color: var(--danger); }
+
 .submit-review { width: 100%; margin-top: 8px; border-color: var(--secondary); background: var(--secondary); color: #fff; }
 .submit-review:hover:not(:disabled) { background: #333; }
 .submit-review:disabled { background: #e5e7eb; color: var(--muted2); border-color: var(--border); }
