@@ -1,4 +1,4 @@
-// Reviewer Case Queue — filter tabs with counts, search, sort, CSV export.
+// Assessor Docket — filter tabs with counts, search, sort, CSV export.
 const $ = (id) => document.getElementById(id);
 
 const state = { filter: "all", q: "", sort: "ai_confidence", dir: -1, cases: [] };
@@ -27,7 +27,7 @@ function confidenceDial(v) {
 }
 
 function statusTag(s) {
-  return `<span class="status-tag" data-status="${(s || "").toLowerCase().replace(/\s+/g, "-")}">${esc(s)}</span>`;
+  return `<span class="status-tag" data-status="${(s || "").toLowerCase().replace(/\s+/g, "-")}">${esc(window.statusLabel(s))}</span>`;
 }
 
 function render() {

@@ -319,29 +319,34 @@ def _seed_defaults():
                 delete_below_threshold, strict_domain, require_evidence_links,
                 system_prompt_addendum, updated_at)
                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ["NUPathway", 25, 80, 50, 1, 1, "", now_iso()],
+            ["Provenance", 25, 80, 50, 1, 1, "", now_iso()],
         )
 
-    # Catalog: a couple of courses + a policy + an example
+    # Narrow, reversible data update: rename a pre-existing seeded institution
+    # name to the new brand without touching any structural value.
+    execute("UPDATE settings SET institution_name = 'Provenance' "
+            "WHERE institution_name = 'NUPathway'")
+
+    # Reference Library: a couple of courses + a policy + an example
     if not query_one("SELECT id FROM catalog"):
         seed_catalog = [
             ("course", "CS5001", "Intensive Foundations of Computer Science",
              "Introduces programming, problem decomposition, data abstraction, and "
-             "fundamental algorithms. Competencies: writing and debugging programs, "
+             "fundamental algorithms. Skills: writing and debugging programs, "
              "designing functions and data structures, recursion, and testing."),
             ("course", "PM6010", "Project Management Foundations",
              "Covers project lifecycle, scope, scheduling, budgeting, risk, and "
-             "stakeholder communication. Competencies: planning a project, tracking "
+             "stakeholder communication. Skills: planning a project, tracking "
              "budget and schedule, managing risk, and leading cross-functional teams."),
-            ("policy", "CPL-POL-01", "Evidence Standards for Prior Learning",
-             "Credit is granted only when documented evidence (certificates, "
-             "transcripts, work artifacts, or validated portfolios) substantiates each "
-             "claimed competency against the target course's learning outcomes. "
+            ("policy", "PLA-POL-01", "Artifact Standards for Prior Learning",
+             "Credit is granted only when documented artifacts (certificates, "
+             "transcripts, work products, or validated portfolios) substantiate each "
+             "claim against the target course's learning outcomes. "
              "Self-attestation alone is insufficient."),
-            ("example", "EX-001", "Example: Budget Tracking competency",
-             "An applicant managing a $250k departmental budget provided a quarterly "
+            ("example", "EX-001", "Example: Budget Tracking claim",
+             "A learner managing a $250k departmental budget provided a quarterly "
              "variance report and a forecasting spreadsheet. This was mapped to the "
-             "'Track budget and schedule' competency in PM6010."),
+             "'Track budget and schedule' claim in PM6010."),
         ]
         for t, code, title, content in seed_catalog:
             execute(

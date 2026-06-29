@@ -1,4 +1,5 @@
-// Reviewer case review: assessment, read-only transcript, evidence, decisions, escalation.
+// Assessor portfolio review: assessment, read-only Intake Record, artifacts, decisions, referral.
+const DECISION_LABELS = { approve: "Award", deny: "Decline", revise: "Return" };
 const $ = (id) => document.getElementById(id);
 const CASE_ID = window.CASE_ID;
 
@@ -26,7 +27,7 @@ function render(d) {
   $("caseView").hidden = false;
   $("crumbCode").textContent = c.case_code;
   $("caseCode").textContent = c.case_code;
-  $("caseStatus").textContent = c.status;
+  $("caseStatus").textContent = window.statusLabel(c.status);
   $("caseStatus").dataset.status = (c.status || "").toLowerCase().replace(/\s+/g, "-");
   $("applicant").textContent = `${c.applicant_name || "—"} · NU-ID ${c.applicant_nuid || "—"}`;
   $("targetCourse").textContent = c.target_course || "—";
@@ -40,7 +41,7 @@ function render(d) {
   // transcript (read-only)
   $("transcript").innerHTML = (d.messages || []).map((m) => {
     if (m.role === "system") return `<div class="t-system">${esc(m.content)}</div>`;
-    const who = m.role === "user" ? "Applicant" : "Echo";
+    const who = m.role === "user" ? "Learner" : "Vera";
     return `<div class="t-msg t-${m.role}"><span class="t-who">${who}</span>${esc(m.content)}</div>`;
   }).join("") || '<p class="muted-empty">No transcript.</p>';
 
@@ -52,13 +53,13 @@ function render(d) {
         <a class="smallbtn" href="/api/evidence/${ev.id}/download" target="_blank" rel="noopener">View</a>
       </div>
       <span class="comp-state">${esc(ev.mapping_status)}${ev.competency_id ? " · " + esc(compIndex[ev.competency_id] || "") : ""}</span>
-    </div>`).join("") || '<p class="muted-empty">No evidence submitted.</p>';
+    </div>`).join("") || '<p class="muted-empty">No artifacts submitted.</p>';
 
   // decision + escalation history
   const dec = (d.decisions || []).map((x) =>
-    `<li><b>${esc(x.decision)}</b> — ${esc(x.notes || "no notes")} <span class="muted-date">${esc((x.created_at||"").replace("T"," ").replace("Z",""))}</span></li>`).join("");
+    `<li><b>${esc(DECISION_LABELS[x.decision] || x.decision)}</b> — ${esc(x.notes || "no notes")} <span class="muted-date">${esc((x.created_at||"").replace("T"," ").replace("Z",""))}</span></li>`).join("");
   const esca = (d.escalations || []).map((x) =>
-    `<li><b>Escalated: ${esc(x.type)}</b> → ${esc(x.assignee_name || "—")} ${esc(x.assignee_email ? "("+x.assignee_email+")" : "")} — ${esc(x.notes || "")}</li>`).join("");
+    `<li><b>Referred: ${esc(x.type)}</b> → ${esc(x.assignee_name || "—")} ${esc(x.assignee_email ? "("+x.assignee_email+")" : "")} — ${esc(x.notes || "")}</li>`).join("");
   $("decisionHistory").innerHTML = (dec || esca)
     ? `<p class="detail-label" style="margin-top:16px;">History</p><ul class="detail-list">${dec}${esca}</ul>` : "";
 }
@@ -69,13 +70,13 @@ async function load() {
 }
 
 async function decide(decision) {
-  const labels = { approve: "approve credit for", deny: "deny", revise: "request revision on" };
-  if (!confirm(`Are you sure you want to ${labels[decision]} this case?`)) return;
+  const labels = { approve: "award credit for", deny: "decline", revise: "return for revision" };
+  if (!confirm(`Are you sure you want to ${labels[decision]} this portfolio?`)) return;
   try {
     render(await api(`/api/reviewer/cases/${CASE_ID}/decision`, {
       method: "POST", body: JSON.stringify({ decision, notes: $("notes").value.trim() }),
     }));
-    toast(`Credit ${decision === "approve" ? "approved" : decision === "deny" ? "denied" : "revision requested"}.`);
+    toast(decision === "approve" ? "Credit awarded." : decision === "deny" ? "Credit declined." : "Portfolio returned for revision.");
   } catch (e) { alert(e.message); }
 }
 
@@ -103,7 +104,7 @@ $("escSubmit").addEventListener("click", async () => {
       }),
     }));
     $("escModal").hidden = true;
-    toast("Case escalated.");
+    toast("Portfolio referred.");
   } catch (e) { alert(e.message); }
 });
 

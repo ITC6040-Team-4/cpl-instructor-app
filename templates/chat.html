@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Echo — CPL Intake</title>
+  <title>Vera — Provenance Intake</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body class="chat-layout">
@@ -21,10 +21,10 @@
     </div>
 
     <!-- Identity gate -->
-    <section class="card" id="identityGate" aria-label="Start your case">
-      <h1>Start building your case</h1>
-      <p class="sub">Echo will help turn your experience into a credible, evidence-backed
-        case toward a course. First, tell us who you are.</p>
+    <section class="card" id="identityGate" aria-label="Start your portfolio">
+      <h1>Start building your portfolio</h1>
+      <p class="sub">Vera will help you establish the provenance of your skills — a
+        documented chain of evidence toward a course. First, tell us who you are.</p>
       <div class="form-row">
         <label for="nameInput">Full name</label>
         <input id="nameInput" type="text" autocomplete="name" placeholder="e.g. Jordan Lee" />
@@ -34,15 +34,15 @@
         <input id="nuidInput" type="text" autocomplete="off" placeholder="e.g. 001234567" />
       </div>
       <div id="gateError" class="error" role="alert" style="min-height: 18px;"></div>
-      <button id="startBtn" class="primary">Begin intake →</button>
+      <button id="startBtn" class="primary">Start with Vera →</button>
     </section>
 
     <!-- Two-pane workspace (hidden until a case exists) -->
     <section class="workspace" id="workspace" hidden>
       <!-- Conversation -->
-      <section class="card pane-chat" aria-label="Conversation with Echo">
+      <section class="card pane-chat" aria-label="Conversation with Vera">
         <div class="panelTitle">
-          <h2>Conversation with Echo</h2>
+          <h2>Conversation with Vera</h2>
           <button id="copy" class="smallbtn" type="button">Copy All</button>
         </div>
         <div id="chatHistory" class="chat-history" aria-live="polite"></div>
@@ -53,18 +53,18 @@
             <span class="hint">Press <b>Ctrl/⌘ + Enter</b> to send</span>
             <div class="btnrow">
               <input type="file" id="fileUpload" accept=".pdf,.docx,.png,.jpg,.jpeg,.gif,.webp" style="display:none" />
-              <button id="attachBtn" class="smallbtn" type="button" title="Upload evidence">📎 Attach evidence</button>
+              <button id="attachBtn" class="smallbtn" type="button" title="Upload an artifact">📎 Add artifact</button>
               <button id="send" class="primary">Send</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Live Case Record -->
-      <aside class="card pane-record" aria-label="Case Record">
+      <!-- Live Portfolio Builder -->
+      <aside class="card pane-record" aria-label="Portfolio Builder">
         <div class="record-head">
           <div>
-            <div class="case-code mono" id="caseCode">CPL-…</div>
+            <div class="case-code mono" id="caseCode">PLA-…</div>
             <span class="status-tag" id="caseStatus">Draft</span>
           </div>
           <div class="dial" id="dial" role="img" aria-label="Completion">
@@ -79,31 +79,31 @@
 
         <div class="record-field">
           <label for="summary">Summary of experience</label>
-          <textarea id="summary" placeholder="Echo will draft this as you talk. You can edit it."></textarea>
+          <textarea id="summary" placeholder="Vera will draft this as you talk. You can edit it."></textarea>
         </div>
 
         <div class="record-field">
           <div class="map-label">
-            <label>Competency Map</label>
+            <label>Chain of Evidence</label>
             <span class="map-legend"><i class="leg-mapped"></i> mapped &nbsp; <i class="leg-open"></i> open</span>
           </div>
           <div id="competencyMap" class="competency-map">
-            <p class="muted-empty">No competencies yet — keep describing your experience and they'll appear here as slots.</p>
+            <p class="muted-empty">No claims yet — keep describing your experience and they'll appear here as slots.</p>
           </div>
         </div>
 
         <div class="record-field">
-          <label>Unsorted evidence</label>
+          <label>Unsorted artifacts</label>
           <div id="unsortedEvidence" class="evidence-list">
-            <p class="muted-empty">Attach or drag a file here, then link it to a competency above.</p>
+            <p class="muted-empty">Attach or drag a file here, then link it to a claim above.</p>
           </div>
         </div>
 
         <button id="submitReview" class="primary submit-review" disabled
-                title="Available once your case is complete enough to submit.">
-          Submit for Review
+                title="Available once your portfolio is complete enough to submit.">
+          Submit for assessment
         </button>
-        <p class="hint" id="submitHint">Build your case toward the submit threshold to unlock.</p>
+        <p class="hint" id="submitHint">Build your portfolio toward the submit threshold to unlock.</p>
       </aside>
     </section>
   </main>

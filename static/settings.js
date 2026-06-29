@@ -1,4 +1,4 @@
-// Reviewer settings: thresholds, guardrails, routing rules, catalog CRUD, demo tools.
+// Assessor settings: thresholds, guardrails, routing rules, Reference Library CRUD, demo tools.
 const $ = (id) => document.getElementById(id);
 
 function esc(s) {
@@ -43,7 +43,7 @@ function renderCatalog(entries) {
       <div><span class="cat-type">${esc(e.type)}</span> <b class="mono">${esc(e.code || "")}</b> ${esc(e.title)}
         <div class="cat-content">${esc((e.content || "").slice(0, 160))}${(e.content || "").length > 160 ? "…" : ""}</div></div>
       <button class="smallbtn danger-btn" data-catalog="${e.id}">Delete</button>
-    </div>`).join("") : '<p class="muted-empty">No catalog entries yet.</p>';
+    </div>`).join("") : '<p class="muted-empty">No library entries yet.</p>';
 }
 
 // settings save
@@ -87,14 +87,14 @@ $("addCatalog").addEventListener("click", async () => {
   $("c_code").value = ""; $("c_title").value = ""; $("c_content").value = "";
 });
 $("catalogList").addEventListener("click", async (e) => {
-  if (e.target.dataset.catalog && confirm("Delete this catalog entry?"))
+  if (e.target.dataset.catalog && confirm("Delete this Reference Library entry?"))
     renderCatalog((await api(`/api/catalog/${e.target.dataset.catalog}`, { method: "DELETE" })).catalog);
 });
 
 // demo tool
 $("resetSession").addEventListener("click", () => {
   try { localStorage.removeItem("cpl_identity"); } catch (_) {}
-  alert("Student session reset. This browser's saved identity was cleared; cases remain in the database.");
+  alert("Learner session reset. This browser's saved identity was cleared; portfolios remain in the database.");
 });
 
 load();

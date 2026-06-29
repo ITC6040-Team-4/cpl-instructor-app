@@ -1,40 +1,41 @@
 # CPL Evaluation Platform (Team 4)
 
-A two-persona **Credit for Prior Learning** platform. Applicants chat with **Echo**,
-an AI intake assistant, to assemble an evidence-backed *case* toward a course;
-faculty **reviewers** triage a queue, read the case, and render a decision.
+A two-persona **Credit for Prior Learning** platform called **Provenance**. Learners
+chat with **Vera**, an AI intake guide, to assemble an artifact-backed *portfolio*
+toward a course; faculty **assessors** triage a docket, read the portfolio, and
+render a decision.
 
 Built on the original Flask + Azure OpenAI + Azure SQL stack (no framework rewrite).
 
 ## What it does
 
-- **Applicant** — case-bound chat with Echo, a live **Competency Map** (competencies
-  as slots, evidence cards linked into them), structured extraction into the case
-  record, evidence upload (PDF/DOCX/images, 50MB) with AI competency-mapping
-  suggestions, a transparent completion rubric, threshold-gated submit, and a
-  Case History with reviewer feedback.
-- **Reviewer** (login-gated) — a sortable, searchable **Case Queue** with filter
-  tabs, AI-confidence dials, and CSV export; a full **case review** with a
-  read-only transcript audit log, evidence + mappings, and a decision action bar
+- **Learner** — portfolio chat with Vera, a live **Chain of Evidence** (claims
+  as slots, artifact cards linked into them), structured extraction into the
+  Portfolio Builder, artifact upload (PDF/DOCX/images, 50MB) with AI claim-mapping
+  suggestions, a transparent Progress rubric, threshold-gated submit, and a
+  portfolio history with assessor feedback.
+- **Assessor** (login-gated) — a sortable, searchable **Docket** with filter
+  tabs, Provenance Score dials, and CSV export; a full **portfolio review** with a
+  read-only Intake Record audit log, artifacts + mappings, and a decision action bar
   (Approve / Deny / Request Revision / Escalate).
-- **Admin/Settings** (reviewer-gated) — institution name + thresholds, AI
-  guardrails (strict-domain, require-evidence-links, system-prompt addendum),
+- **Admin/Settings** (assessor-gated) — institution name + thresholds, AI
+  guardrails (Focused Mode, Require Artifact Links, Guidance Note),
   workflow **routing rules** (applied on submit), and a **course catalog / KB**
-  that grounds Echo.
+  that grounds Vera.
 - **Shell** — ⌘K command palette, role switcher, live queue badge, system links.
 
 ## Architecture
 
 | File | Responsibility |
 |---|---|
-| `app.py` | Flask routes (applicant, reviewer, system) + error handling |
+| `app.py` | Flask routes (learner, assessor, system) + error handling |
 | `db.py` | Backend-aware data layer (Azure SQL via pyodbc / SQLite dev fallback), idempotent migrations + seed |
-| `services.py` | Case lifecycle, deterministic completion rubric, extraction merge, routing rules, queue |
-| `ai.py` | Azure OpenAI: Echo chat, JSON extraction, mapping, confidence; `MAX_CHAT_REQUESTS` counter |
+| `services.py` | Portfolio lifecycle, deterministic Progress rubric, extraction merge, routing rules, docket |
+| `ai.py` | Azure OpenAI: Vera chat, JSON extraction, mapping, Provenance Score; `MAX_CHAT_REQUESTS` counter |
 | `prompts.py` | All AI prompts (one place to tune) |
-| `storage.py` | Evidence storage adapter (Azure Blob / inline fallback) + PDF/DOCX text extraction |
-| `auth.py` | Reviewer bcrypt auth + session gating |
-| `templates/`, `static/` | Jinja templates + the "Patina" design system, Competency Map, command palette |
+| `storage.py` | Artifact storage adapter (Azure Blob / inline fallback) + PDF/DOCX text extraction |
+| `auth.py` | Assessor bcrypt auth + session gating |
+| `templates/`, `static/` | Jinja templates + the "Patina" design system, Chain of Evidence, command palette |
 
 System endpoints: `/health`, `/dbcheck` (returns `{result, status, backend}`),
 `/admin` (config status + chat-request counter).
@@ -51,7 +52,7 @@ flask --app app run --port 8000
 
 With no `SQL_CONNECTION_STRING`, the app uses a local SQLite file (`cpl_local.db`)
 and creates/seeds the schema on first boot. With no `AZURE_STORAGE_CONNECTION_STRING`,
-evidence under 1MB is stored inline. With no Azure OpenAI vars, pages still load
+artifacts under 1MB are stored inline. With no Azure OpenAI vars, pages still load
 but chat/extraction return a clear error. Visit `/` to start.
 
 > `pyodbc` is only imported when an Azure SQL connection string is present, so a
