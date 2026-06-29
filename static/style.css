@@ -335,9 +335,39 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important;
 .mini-dial::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--card); }
 
 /* ============================
+   Reviewer Case Review (Phase 6)
+============================ */
+.review-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
+.conf-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.conf-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted2); }
+.audit-head { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 8px; }
+.audit-badge { font-size: 11px; font-weight: 600; color: var(--muted); background: #f1f5f9; border: 1px solid var(--border); padding: 3px 8px; border-radius: 6px; }
+.transcript { border: 1px solid var(--border); border-radius: 8px; background: #fbfbfa; padding: 14px; max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.t-msg { padding: 10px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.t-user { background: #fff; border: 1px solid var(--border); }
+.t-assistant { background: #eef4f2; }
+.t-who { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-bottom: 4px; }
+.t-system { text-align: center; font-size: 12px; color: var(--muted2); font-style: italic; }
+
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; margin: 6px 0; cursor: pointer; }
+#notes { width: 100%; min-height: 90px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-family: inherit; font-size: 14px; resize: vertical; }
+
+.decision-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.decision-bar button { font-weight: 700; }
+.btn-approve { background: #C08A2D; border-color: #C08A2D; color: #fff; }
+.btn-approve:hover { background: #a5761f; border-color: #a5761f; }
+.btn-deny { background: #fff; border-color: #B4502E; color: #B4502E; }
+.btn-deny:hover { background: #fdf2ee; }
+.btn-quiet { background: #fff; color: var(--muted); }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--secondary); color: #fff; padding: 12px 22px; border-radius: 8px; font-weight: 600; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.25); animation: toastIn 200ms ease; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ============================
    Media Queries
 ============================ */
 @media (max-width: 980px) {
+  .review-grid { grid-template-columns: 1fr; }
   .workspace { grid-template-columns: 1fr; }
   .pane-record { position: static; }
 }

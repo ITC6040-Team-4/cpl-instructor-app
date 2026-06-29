@@ -653,6 +653,62 @@ def reviewer_cases_csv():
                     headers={"Content-Disposition": "attachment; filename=cpl-cases.csv"})
 
 
+@app.get("/reviewer/case/<int:case_id>")
+def reviewer_case_page(case_id):
+    if not auth.is_authenticated():
+        return redirect("/reviewer/login")
+    return render_template("reviewer_case.html",
+                           reviewer_name=auth.current_reviewer().get("name", "Reviewer"))
+
+
+@app.get("/api/reviewer/cases/<int:case_id>")
+@auth.require_reviewer
+def reviewer_case_detail(case_id):
+    case = services.get_case(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    services.mark_in_review(case_id)
+    case = services.get_case(case_id)
+    return jsonify({
+        "case": case,
+        "competencies": services.get_competencies(case_id),
+        "evidence": services.get_evidence(case_id),
+        "messages": services.get_messages(case_id),
+        "decisions": services.get_decisions(case_id),
+        "escalations": services.get_escalations(case_id),
+    })
+
+
+@app.post("/api/reviewer/cases/<int:case_id>/decision")
+@auth.require_reviewer
+def reviewer_decision(case_id):
+    if not services.get_case(case_id):
+        return jsonify({"error": "Case not found"}), 404
+    data = request.get_json(silent=True) or {}
+    decision = data.get("decision")
+    if decision not in services.DECISION_STATUS:
+        return jsonify({"error": "decision must be approve, deny, or revise"}), 400
+    reviewer = auth.current_reviewer()
+    services.record_decision(case_id, reviewer["id"], decision,
+                             (data.get("notes") or "").strip())
+    return jsonify(reviewer_case_detail(case_id).get_json())
+
+
+@app.post("/api/reviewer/cases/<int:case_id>/escalate")
+@auth.require_reviewer
+def reviewer_escalate(case_id):
+    if not services.get_case(case_id):
+        return jsonify({"error": "Case not found"}), 404
+    data = request.get_json(silent=True) or {}
+    etype = (data.get("type") or "").strip()
+    if not etype:
+        return jsonify({"error": "Escalation type is required"}), 400
+    services.record_escalation(
+        case_id, etype, (data.get("assignee_name") or "").strip(),
+        (data.get("assignee_email") or "").strip(), (data.get("notes") or "").strip())
+    return jsonify(reviewer_case_detail(case_id).get_json())
+
+
 @app.get("/api/reviewer/me")
 def reviewer_me():
     r = auth.current_reviewer()

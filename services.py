@@ -284,9 +284,44 @@ def apply_routing_rules(case_id):
     update_case(case_id, {"assignee": assignee, "flags": ",".join(flags)})
 
 
+DECISION_STATUS = {
+    "approve": STATUS_APPROVED,
+    "deny": STATUS_DENIED,
+    "revise": STATUS_REVISION,
+}
+
+
 def get_decisions(case_id):
     return db.query(
         "SELECT * FROM decisions WHERE case_id = ? ORDER BY id DESC", [case_id])
+
+
+def get_escalations(case_id):
+    return db.query(
+        "SELECT * FROM escalations WHERE case_id = ? ORDER BY id DESC", [case_id])
+
+
+def mark_in_review(case_id):
+    case = get_case(case_id)
+    if case and case["status"] == STATUS_SUBMITTED:
+        update_case(case_id, {"status": STATUS_IN_REVIEW})
+
+
+def record_decision(case_id, reviewer_id, decision, notes):
+    db.insert(
+        """INSERT INTO decisions (case_id, reviewer_id, decision, notes, created_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        [case_id, reviewer_id, decision, notes, db.now_iso()])
+    update_case(case_id, {"status": DECISION_STATUS.get(decision, STATUS_IN_REVIEW)})
+
+
+def record_escalation(case_id, etype, assignee_name, assignee_email, notes):
+    db.insert(
+        """INSERT INTO escalations
+           (case_id, type, assignee_name, assignee_email, notes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        [case_id, etype, assignee_name, assignee_email, notes, db.now_iso()])
+    update_case(case_id, {"status": STATUS_ESCALATED})
 
 
 def latest_feedback(case_id):
