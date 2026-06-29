@@ -709,6 +709,101 @@ def reviewer_escalate(case_id):
     return jsonify(reviewer_case_detail(case_id).get_json())
 
 
+@app.get("/reviewer/settings")
+def reviewer_settings_page():
+    if not auth.is_authenticated():
+        return redirect("/reviewer/login")
+    return render_template("reviewer_settings.html",
+                           reviewer_name=auth.current_reviewer().get("name", "Reviewer"))
+
+
+@app.get("/api/public-settings")
+def public_settings():
+    """Minimal settings the applicant UI needs (institution name, thresholds)."""
+    s = services.get_settings()
+    return jsonify({
+        "institution_name": s.get("institution_name"),
+        "submit_threshold": s.get("submit_threshold"),
+        "draft_threshold": s.get("draft_threshold"),
+        "delete_below_threshold": s.get("delete_below_threshold"),
+    })
+
+
+@app.get("/api/settings")
+@auth.require_reviewer
+def get_settings_api():
+    return jsonify({
+        "settings": services.get_settings(),
+        "routing_rules": services.get_routing_rules(),
+        "catalog": services.list_catalog(),
+    })
+
+
+@app.put("/api/settings")
+@auth.require_reviewer
+def update_settings_api():
+    data = request.get_json(silent=True) or {}
+    fields = {}
+    for k in ["institution_name", "system_prompt_addendum"]:
+        if k in data:
+            fields[k] = data[k]
+    for k in ["draft_threshold", "submit_threshold", "delete_below_threshold"]:
+        if k in data:
+            try:
+                fields[k] = max(0, min(100, int(data[k])))
+            except (TypeError, ValueError):
+                pass
+    for k in ["strict_domain", "require_evidence_links"]:
+        if k in data:
+            fields[k] = 1 if data[k] else 0
+    services.update_settings(fields)
+    return jsonify({"settings": services.get_settings()})
+
+
+@app.post("/api/routing-rules")
+@auth.require_reviewer
+def add_routing_rule_api():
+    d = request.get_json(silent=True) or {}
+    if not d.get("condition_value") or not d.get("action_value"):
+        return jsonify({"error": "condition and action values are required"}), 400
+    services.add_routing_rule(
+        d.get("condition_type", "course_matches"), d.get("condition_value"),
+        d.get("action_type", "assign"), d.get("action_value"))
+    return jsonify({"routing_rules": services.get_routing_rules()})
+
+
+@app.delete("/api/routing-rules/<int:rule_id>")
+@auth.require_reviewer
+def delete_routing_rule_api(rule_id):
+    services.delete_routing_rule(rule_id)
+    return jsonify({"routing_rules": services.get_routing_rules()})
+
+
+@app.post("/api/catalog")
+@auth.require_reviewer
+def add_catalog_api():
+    d = request.get_json(silent=True) or {}
+    if not d.get("title"):
+        return jsonify({"error": "Title is required"}), 400
+    services.add_catalog(d.get("type", "course"), d.get("code", ""),
+                         d.get("title"), d.get("content", ""))
+    return jsonify({"catalog": services.list_catalog()})
+
+
+@app.put("/api/catalog/<int:entry_id>")
+@auth.require_reviewer
+def update_catalog_api(entry_id):
+    services.update_catalog(entry_id, request.get_json(silent=True) or {})
+    return jsonify({"catalog": services.list_catalog()})
+
+
+@app.delete("/api/catalog/<int:entry_id>")
+@auth.require_reviewer
+def delete_catalog_api(entry_id):
+    services.delete_catalog(entry_id)
+    return jsonify({"catalog": services.list_catalog()})
+
+
 @app.get("/api/reviewer/me")
 def reviewer_me():
     r = auth.current_reviewer()

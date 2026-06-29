@@ -250,6 +250,12 @@ $("submitReview").addEventListener("click", async () => {
 
 // ---------- init: resume existing case or prefill identity ----------
 (async function init() {
+  // Load real thresholds from settings so gating matches admin config.
+  try {
+    const ps = await (await fetch("/api/public-settings")).json();
+    if (ps.submit_threshold != null) state.submitThreshold = ps.submit_threshold;
+  } catch (_) {}
+
   const params = new URLSearchParams(location.search);
   const resumeId = params.get("case");
   if (resumeId) {

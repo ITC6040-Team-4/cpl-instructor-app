@@ -247,6 +247,48 @@ def get_routing_rules():
     return db.query("SELECT * FROM routing_rules ORDER BY id")
 
 
+def add_routing_rule(condition_type, condition_value, action_type, action_value):
+    return db.insert(
+        """INSERT INTO routing_rules
+           (condition_type, condition_value, action_type, action_value, created_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        [condition_type, condition_value, action_type, action_value, db.now_iso()])
+
+
+def delete_routing_rule(rule_id):
+    db.execute("DELETE FROM routing_rules WHERE id = ?", [rule_id])
+
+
+# --- catalog / knowledge base ---
+def list_catalog():
+    return db.query("SELECT * FROM catalog ORDER BY type, code")
+
+
+def add_catalog(ctype, code, title, content):
+    return db.insert(
+        """INSERT INTO catalog (type, code, title, content, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        [ctype, code, title, content, db.now_iso(), db.now_iso()])
+
+
+def update_catalog(entry_id, fields):
+    allowed = ["type", "code", "title", "content"]
+    sets, params = [], []
+    for k in allowed:
+        if k in fields:
+            sets.append(f"{k} = ?")
+            params.append(fields[k])
+    if not sets:
+        return
+    params.append(db.now_iso())
+    params.append(entry_id)
+    db.execute(f"UPDATE catalog SET {', '.join(sets)}, updated_at = ? WHERE id = ?", params)
+
+
+def delete_catalog(entry_id):
+    db.execute("DELETE FROM catalog WHERE id = ?", [entry_id])
+
+
 def apply_routing_rules(case_id):
     """Evaluate routing rules against a case and set assignee/flags accordingly.
 
