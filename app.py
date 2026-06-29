@@ -28,6 +28,28 @@ try:
 except Exception:
     app.logger.exception("Database initialization failed at startup")
 
+# Reject oversized request bodies early (evidence cap is 50MB; allow margin).
+app.config["MAX_CONTENT_LENGTH"] = 55 * 1024 * 1024
+
+
+@app.errorhandler(413)
+def too_large(_e):
+    return jsonify({"error": "File too large. The limit is 50MB."}), 413
+
+
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Not found"}), 404
+    return e, 404
+
+
+@app.errorhandler(500)
+def server_error(_e):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "Internal server error"}), 500
+    return "Internal server error", 500
+
 # ===============================
 # Azure OpenAI Client Factory
 # ===============================
@@ -76,13 +98,21 @@ def chat_page():
 
 @app.get("/admin")
 def admin_page():
+    def mark(name):
+        return "✅ set" if os.getenv(name) else "❌ missing"
+    max_req = ai.max_chat_requests()
     status = {
-        "AZURE_OPENAI_ENDPOINT": "✅ set" if os.getenv("AZURE_OPENAI_ENDPOINT") else "❌ missing",
-        "AZURE_OPENAI_API_KEY": "✅ set" if os.getenv("AZURE_OPENAI_API_KEY") else "❌ missing",
+        "AZURE_OPENAI_ENDPOINT": mark("AZURE_OPENAI_ENDPOINT"),
+        "AZURE_OPENAI_API_KEY": mark("AZURE_OPENAI_API_KEY"),
         "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION") or "(default: 2024-12-01-preview)",
-        "AZURE_OPENAI_DEPLOYMENT": "✅ set" if os.getenv("AZURE_OPENAI_DEPLOYMENT") else "❌ missing",
-        # NEW: show whether SQL conn string is present (but never show its value)
-        "SQL_CONNECTION_STRING": "✅ set" if os.getenv("SQL_CONNECTION_STRING") else "❌ missing",
+        "AZURE_OPENAI_DEPLOYMENT": mark("AZURE_OPENAI_DEPLOYMENT"),
+        "SQL_CONNECTION_STRING": mark("SQL_CONNECTION_STRING"),
+        "DB backend (active)": db.backend(),
+        "AZURE_STORAGE_CONNECTION_STRING": mark("AZURE_STORAGE_CONNECTION_STRING"),
+        "Evidence storage": "Azure Blob" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "Inline fallback (<1MB)",
+        "SEED_REVIEWER_EMAIL": mark("SEED_REVIEWER_EMAIL"),
+        "MAX_CHAT_REQUESTS": str(max_req) if max_req else "0 (unlimited)",
+        "CURRENT_CHAT_REQUESTS": str(ai.current_chat_requests()),
     }
     return render_template("admin.html", status=status)
 
