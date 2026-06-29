@@ -176,7 +176,7 @@ def admin_page():
         "SQL_CONNECTION_STRING": mark("SQL_CONNECTION_STRING"),
         "DB backend (active)": db.backend(),
         "AZURE_STORAGE_CONNECTION_STRING": mark("AZURE_STORAGE_CONNECTION_STRING"),
-        "Evidence storage": "Azure Blob" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "Inline fallback (<1MB)",
+        "Artifact storage": "Azure Blob" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "Inline fallback (<1MB)",
         "SEED_REVIEWER_EMAIL": mark("SEED_REVIEWER_EMAIL"),
         "MAX_CHAT_REQUESTS": MAX_CHAT_REQUESTS,
         "CURRENT_CHAT_REQUESTS": usage_count,
@@ -297,25 +297,25 @@ def api_chat():
                 {
                     "role": "system",
                     "content": (
-                        "You are a master academic Evaluator Assistant for Northeastern University's Credit for Prior Learning (CPL) program. "
-                        "You evaluate students for ALL colleges across Northeastern University.\n\n"
+                        "You are Vera, the intake guide for Provenance, a Credit for Prior Learning service at Northeastern University. "
+                        "You help learners across ALL colleges establish the provenance of their skills. Introduce yourself as Vera.\n\n"
 
                         "YOUR FIRST TASK:\n"
-                        "You MUST begin the conversation by politely asking the student for their Full Name and Northeastern Student ID. "
+                        "You MUST begin the conversation by politely asking the learner for their Full Name and Northeastern Student ID. "
                         "Do not ask any interview questions until you have this information.\n\n"
 
-                        "YOUR INTERVIEW KNOWLEDGE BASE:\n"
+                        "YOUR REFERENCE KNOWLEDGE:\n"
                         "Rely on your extensive pre-trained knowledge of standard university curricula. "
-                        "When a student describes their professional background, dynamically identify specific Northeastern courses that align with their skills.\n\n"
+                        "When a learner describes their professional background, dynamically identify specific Northeastern courses that align with their skills.\n\n"
 
                         "CRITICAL RULES YOU MUST STRICTLY FOLLOW:\n"
                         "- BE EXTREMELY CONCISE. Acknowledge the user's answer in a single short sentence. Do NOT summarize or repeat their previous answers back to them.\n"
-                        "- MEANINGFUL FOLLOW-UP QUESTIONS: Ask EXACTLY ONE short, competency-based interview question at a time. Analyze the user's previous answer and ask highly specific follow-ups to probe the depth of their competency. Explicitly ask about 'measurable outcomes', 'challenges you solved', or specific 'tools and techniques used'.\n"
+                        "- MEANINGFUL FOLLOW-UP QUESTIONS: Ask EXACTLY ONE short, skill-based question at a time. Analyze the user's previous answer and ask highly specific follow-ups to probe the depth of their skills. Explicitly ask about 'measurable outcomes', 'challenges you solved', or specific 'tools and techniques used'.\n"
                         "- Always wait for the user to answer before moving to the next question.\n"
-                        "- PROACTIVE EVIDENCE & ARTIFACT GATHERING: You must explicitly reference 'documentation or artifacts' that could support the student's claims. If they mention a certification, degree, or tangible project, proactively ask them to upload corroborating proof (e.g., certificates, transcripts, or architecture diagrams) using the 'Attach' button.\n"
-                        "- POLICY SAFETY (NO GUARANTEES): Do NOT evaluate, score, or promise credit. Never guarantee outcomes. State clearly that you are only gathering evidence for the appropriate faculty committee.\n"
-                        "- If the user uploads a document, extract relevant evidence to map to potential outcomes.\n"
-                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the student's responses and uploaded artifacts. Once you confidently deduce that you have gathered enough concrete proof to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out. Thank the student briefly and explicitly instruct them to click the 'Submit to Advisor' button below the chat to send their official transcript for faculty review."
+                        "- PROACTIVE ARTIFACT GATHERING: You must explicitly reference 'documentation or artifacts' that could support the learner's claims. If they mention a certification, degree, or tangible project, proactively ask them to upload corroborating proof (e.g., certificates, transcripts, or architecture diagrams) using the 'Attach' button.\n"
+                        "- POLICY SAFETY (NO GUARANTEES): Do NOT assess, score, or promise credit. Never guarantee outcomes. State clearly that you are only assembling the portfolio for the faculty assessors.\n"
+                        "- If the user uploads a document, extract relevant artifacts to map to potential course outcomes.\n"
+                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the learner's responses and uploaded artifacts. Once you confidently deduce that you have gathered enough concrete proof to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out. Thank the learner briefly and explicitly instruct them to submit the portfolio for assessment using the button below the chat."
                     )
                 }
             ]
@@ -363,8 +363,8 @@ def submit_application():
         summary_prompt.append({
             "role": "user",
             "content": (
-                "The interview is over. Please read our entire conversation above and generate a formal email to the CPL Faculty Advisor. "
-                "Extract the student's Name and Student ID. Summarize the evidence they provided, the documents they uploaded, and the specific academic areas their experience maps to. "
+                "The interview is over. Please read our entire conversation above and generate a formal email to the faculty assessor. "
+                "Extract the learner's Name and Student ID. Summarize the artifacts they provided, the documents they uploaded, and the specific academic areas their experience maps to. "
                 "Do NOT include pleasantries like 'Sure, here is the email', just output the raw email text."
             )
         })
@@ -391,7 +391,7 @@ def submit_application():
 
         msg = EmailMessage()
         msg.set_content(email_body)
-        msg["Subject"] = "New CPL Application Ready for Review"
+        msg["Subject"] = "New Provenance portfolio ready for assessment"
         msg["From"] = bot_email
         msg["To"] = advisor_email
 
@@ -400,7 +400,7 @@ def submit_application():
         server.send_message(msg)
         server.quit()
 
-        return jsonify({"status": "Email successfully sent to the advisor!"})
+        return jsonify({"status": "Submitted to the assessor."})
 
     except Exception as e:
         app.logger.exception("Failed to submit application")
@@ -434,11 +434,11 @@ def create_case():
         session["case_id"] = case["id"]
         # Seed a system message so the transcript has provenance.
         services.add_message(case["id"], "system",
-                             f"Case opened by {name} (NU-ID {nuid}).")
+                             f"Portfolio opened by {name} (NU-ID {nuid}).")
         return jsonify(_case_record(case["id"]))
     except Exception:
         app.logger.exception("create_case failed")
-        return jsonify({"error": "Could not create case."}), 500
+        return jsonify({"error": "Could not create portfolio."}), 500
 
 
 @app.get("/api/cases")
@@ -453,21 +453,21 @@ def list_cases():
 def get_case_api(case_id):
     rec = _case_record(case_id)
     if not rec:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     return jsonify(rec)
 
 
 @app.get("/api/cases/<int:case_id>/transcript")
 def get_transcript(case_id):
     if not services.get_case(case_id):
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     return jsonify({"messages": services.get_messages(case_id)})
 
 
 @app.patch("/api/cases/<int:case_id>")
 def patch_case(case_id):
     if not services.get_case(case_id):
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     data = request.get_json(silent=True) or {}
     fields = {}
     if "summary" in data:
@@ -484,7 +484,7 @@ def patch_case(case_id):
 def post_message(case_id):
     case = services.get_case(case_id)
     if not case:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
 
     data = request.get_json(silent=True) or {}
     user_message = (data.get("message") or "").strip()
@@ -543,16 +543,16 @@ def post_message(case_id):
 def submit_case(case_id):
     case = services.get_case(case_id)
     if not case:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     if case["status"] != services.STATUS_DRAFT:
-        return jsonify({"error": f"Case is already {case['status']}."}), 400
+        return jsonify({"error": "This portfolio has already been submitted for assessment."}), 400
 
     settings = services.get_settings()
     pct = services.recompute_completion(case_id)
     submit_threshold = settings.get("submit_threshold", 80)
     if pct < submit_threshold:
-        return jsonify({"error": f"Case must reach {submit_threshold}% to submit "
-                                 f"(currently {pct}%)."}), 400
+        return jsonify({"error": f"Portfolio must reach {submit_threshold}% to submit for "
+                                 f"assessment (currently {pct}%)."}), 400
 
     # Advisory AI confidence (human decides). Best-effort.
     comps = services.get_competencies(case_id)
@@ -573,7 +573,7 @@ def submit_case(case_id):
     services.update_case(case_id, fields)
     # Apply institution routing rules (assignee / flags) on submit.
     services.apply_routing_rules(case_id)
-    services.add_message(case_id, "system", "Case submitted for review.")
+    services.add_message(case_id, "system", "Portfolio submitted for assessment.")
     return jsonify(_case_record(case_id))
 
 
@@ -581,14 +581,14 @@ def submit_case(case_id):
 def delete_case_api(case_id):
     case = services.get_case(case_id)
     if not case:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     settings = services.get_settings()
     threshold = settings.get("delete_below_threshold", 50)
     if (case.get("completion_pct") or 0) >= threshold and case["status"] == services.STATUS_DRAFT:
-        return jsonify({"error": f"Cases at or above {threshold}% completion can't be "
+        return jsonify({"error": f"Portfolios at or above {threshold}% progress can't be "
                                  f"deleted. Continue or submit it instead."}), 400
     if case["status"] not in (services.STATUS_DRAFT,):
-        return jsonify({"error": "Submitted cases can't be deleted."}), 400
+        return jsonify({"error": "Submitted portfolios can't be deleted."}), 400
     services.delete_case(case_id)
     return jsonify({"status": "deleted"})
 
@@ -597,7 +597,7 @@ def delete_case_api(case_id):
 def case_detail(case_id):
     case = services.get_case(case_id)
     if not case:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     return jsonify({
         "case": case,
         "competencies": services.get_competencies(case_id),
@@ -622,7 +622,7 @@ import storage
 def upload_evidence(case_id):
     case = services.get_case(case_id)
     if not case:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     f = request.files.get("file")
     if not f or not f.filename:
         return jsonify({"error": "No file provided"}), 400
@@ -664,7 +664,7 @@ def upload_evidence(case_id):
 def link_evidence_api(eid):
     row = services.get_evidence_row(eid)
     if not row:
-        return jsonify({"error": "Evidence not found"}), 404
+        return jsonify({"error": "Artifact not found"}), 404
     data = request.get_json(silent=True) or {}
     comp_id = data.get("competency_id")
     if not comp_id:
@@ -672,7 +672,7 @@ def link_evidence_api(eid):
     comp = db.query_one("SELECT id FROM competencies WHERE id = ? AND case_id = ?",
                         [comp_id, row["case_id"]])
     if not comp:
-        return jsonify({"error": "Competency not found for this case"}), 400
+        return jsonify({"error": "Claim not found for this portfolio"}), 400
     services.link_evidence(eid, comp_id)
     services.recompute_completion(row["case_id"])
     return jsonify(_case_record(row["case_id"]))
@@ -682,7 +682,7 @@ def link_evidence_api(eid):
 def unlink_evidence_api(eid):
     row = services.get_evidence_row(eid)
     if not row:
-        return jsonify({"error": "Evidence not found"}), 404
+        return jsonify({"error": "Artifact not found"}), 404
     services.unlink_evidence(eid)
     services.recompute_completion(row["case_id"])
     return jsonify(_case_record(row["case_id"]))
@@ -692,7 +692,7 @@ def unlink_evidence_api(eid):
 def delete_evidence_api(eid):
     row = services.get_evidence_row(eid)
     if not row:
-        return jsonify({"error": "Evidence not found"}), 404
+        return jsonify({"error": "Artifact not found"}), 404
     try:
         storage.delete(row)
     except Exception:
@@ -706,7 +706,7 @@ def delete_evidence_api(eid):
 def download_evidence(eid):
     row = services.get_evidence_row(eid)
     if not row:
-        return jsonify({"error": "Evidence not found"}), 404
+        return jsonify({"error": "Artifact not found"}), 404
     # Reviewer-gated access to others' files is enforced once auth lands (Phase 5);
     # applicants can fetch their own case evidence.
     try:
@@ -779,7 +779,7 @@ def reviewer_cases_csv():
     rows = services.list_review_cases(status, q)
     buf = _io.StringIO()
     writer = _csv.writer(buf)
-    writer.writerow(["Case ID", "Applicant", "Target Course", "Status",
+    writer.writerow(["Portfolio ID", "Learner", "Target Course", "Status",
                      "Completion %", "AI Confidence", "Date Updated"])
     for r in rows:
         writer.writerow([r.get("case_code"), r.get("applicant_name"),
@@ -803,7 +803,7 @@ def reviewer_case_page(case_id):
 def reviewer_case_detail(case_id):
     case = services.get_case(case_id)
     if not case:
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     services.mark_in_review(case_id)
     case = services.get_case(case_id)
     return jsonify({
@@ -820,7 +820,7 @@ def reviewer_case_detail(case_id):
 @auth.require_reviewer
 def reviewer_decision(case_id):
     if not services.get_case(case_id):
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     data = request.get_json(silent=True) or {}
     decision = data.get("decision")
     if decision not in services.DECISION_STATUS:
@@ -835,11 +835,11 @@ def reviewer_decision(case_id):
 @auth.require_reviewer
 def reviewer_escalate(case_id):
     if not services.get_case(case_id):
-        return jsonify({"error": "Case not found"}), 404
+        return jsonify({"error": "Portfolio not found"}), 404
     data = request.get_json(silent=True) or {}
     etype = (data.get("type") or "").strip()
     if not etype:
-        return jsonify({"error": "Escalation type is required"}), 400
+        return jsonify({"error": "Referral type is required"}), 400
     services.record_escalation(
         case_id, etype, (data.get("assignee_name") or "").strip(),
         (data.get("assignee_email") or "").strip(), (data.get("notes") or "").strip())

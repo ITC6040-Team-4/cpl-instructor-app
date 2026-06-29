@@ -1,4 +1,4 @@
-// Case-bound intake chat ("Echo"). Persists to the DB; the Case Record panel
+// Portfolio intake chat with Vera. Persists to the DB; the Portfolio Builder panel
 // updates from structured extraction after each exchange.
 
 const $ = (id) => document.getElementById(id);
@@ -44,7 +44,7 @@ async function api(url, opts = {}) {
 function renderRecord(rec) {
   const c = rec.case;
   $("caseCode").textContent = c.case_code;
-  $("caseStatus").textContent = c.status;
+  $("caseStatus").textContent = window.statusLabel(c.status);
   $("caseStatus").dataset.status = (c.status || "").toLowerCase().replace(/\s+/g, "-");
 
   const pct = c.completion_pct || 0;
@@ -67,8 +67,8 @@ function renderRecord(rec) {
   $("submitReview").disabled = !canSubmit;
   $("submitReview").hidden = !isDraft;
   $("submitHint").textContent = isDraft
-    ? (canSubmit ? "Your case is ready to submit." : `Reach ${state.submitThreshold}% to submit (currently ${pct}%).`)
-    : `This case is ${c.status.toLowerCase()} and is now read-only.`;
+    ? (canSubmit ? "Your portfolio is ready to submit." : `Reach ${state.submitThreshold}% to submit (currently ${pct}%).`)
+    : `This portfolio is ${window.statusLabel(c.status).toLowerCase()} and is now read-only.`;
   ["msg", "send", "attachBtn", "targetCourse", "summary"].forEach((id) => {
     const el = $(id); if (el) el.disabled = !isDraft;
   });
@@ -78,14 +78,14 @@ function labelFor(status) {
   return { mapped: "Mapped", needs_review: "Needs Review", unlinked: "Unlinked" }[status] || "Unlinked";
 }
 
-// The Competency Map: each competency is a slot; mapped evidence cards nest
-// inside their slot. Unlinked / suggested evidence waits in the unsorted tray.
+// The Chain of Evidence: each claim is a slot; mapped artifact cards nest
+// inside their slot. Unlinked / suggested artifacts wait in the unsorted tray.
 function renderCompetencyMap(comps, evidence) {
   const map = $("competencyMap");
   const tray = $("unsortedEvidence");
 
   if (!comps.length) {
-    map.innerHTML = '<p class="muted-empty">No competencies yet — keep describing your experience and they\'ll appear here as slots.</p>';
+    map.innerHTML = '<p class="muted-empty">No claims yet — keep describing your experience and they\'ll appear here as slots.</p>';
   } else {
     map.innerHTML = comps.map((comp) => {
       const mapped = evidence.filter((e) => e.competency_id === comp.id);
@@ -97,27 +97,27 @@ function renderCompetencyMap(comps, evidence) {
           <span class="slot-state">${filled ? "✓ Mapped" : "Open slot"}</span>
         </div>
         ${comp.description ? `<div class="slot-desc">${escapeHtml(comp.description)}</div>` : ""}
-        <div class="slot-evidence">${cards || '<span class="slot-empty">No evidence linked yet</span>'}</div>
+        <div class="slot-evidence">${cards || '<span class="slot-empty">No artifacts linked yet</span>'}</div>
       </div>`;
     }).join("");
   }
 
   const unsorted = evidence.filter((e) => !e.competency_id);
   if (!unsorted.length) {
-    tray.innerHTML = '<p class="muted-empty">All evidence is linked. Attach or drag a new file to add more.</p>';
+    tray.innerHTML = '<p class="muted-empty">All artifacts are linked. Attach or drag a new file to add more.</p>';
   } else {
     tray.innerHTML = unsorted.map((ev) => {
       const options = comps.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
       const suggestion = ev.ai_suggested_competency
-        ? `<div class="suggestion">Echo suggests <b>${escapeHtml(ev.ai_suggested_competency)}</b>
+        ? `<div class="suggestion">Vera suggests <b>${escapeHtml(ev.ai_suggested_competency)}</b>
             <button class="linklike" data-accept="${ev.id}" data-name="${escapeHtml(ev.ai_suggested_competency)}">Accept</button></div>` : "";
       return `<div class="evidence-item" data-status="${ev.mapping_status || "unlinked"}" draggable="false">
         <div class="ev-head"><span class="ev-name">${escapeHtml(ev.filename)}</span>
           <span class="ev-size mono">${fmtSize(ev.size_bytes || 0)}</span></div>
         ${suggestion}
         <div class="ev-actions">
-          <select data-link="${ev.id}" aria-label="Link to competency">
-            <option value="">— link to competency —</option>${options}</select>
+          <select data-link="${ev.id}" aria-label="Link to claim">
+            <option value="">— link to claim —</option>${options}</select>
           <a class="smallbtn" href="/api/evidence/${ev.id}/download" target="_blank" rel="noopener">View</a>
           <button class="smallbtn danger-btn" data-del="${ev.id}">Delete</button>
         </div></div>`;
@@ -157,7 +157,7 @@ async function startCase() {
     $("identityGate").hidden = true;
     $("workspace").hidden = false;
     renderRecord(rec);
-    appendMessage("system", `Case ${rec.case.case_code} opened. Tell Echo about your experience.`);
+    appendMessage("system", `Portfolio ${rec.case.case_code} opened. Tell Vera about your experience.`);
     $("msg").focus();
   } catch (e) {
     $("gateError").textContent = e.message;
@@ -172,7 +172,7 @@ async function sendMessage() {
   appendMessage("user", text);
   $("msg").value = "";
   setBusy(true);
-  const thinking = appendMessage("system", "Echo is thinking…");
+  const thinking = appendMessage("system", "Vera is thinking…");
 
   try {
     const rec = await api(`/api/cases/${state.caseId}/message`, {
@@ -222,7 +222,7 @@ $("summary").addEventListener("blur", (e) => saveField("summary", e.target.value
 
 $("copy").addEventListener("click", async () => {
   const transcript = Array.from(document.querySelectorAll("#chatHistory .msg-bubble:not(.msg-system)"))
-    .map((el) => (el.classList.contains("msg-user") ? "You:\n" : "Echo:\n") + el.textContent)
+    .map((el) => (el.classList.contains("msg-user") ? "You:\n" : "Vera:\n") + el.textContent)
     .join("\n\n---\n\n");
   try {
     await navigator.clipboard.writeText(transcript);
@@ -232,14 +232,14 @@ $("copy").addEventListener("click", async () => {
 });
 
 $("submitReview").addEventListener("click", async () => {
-  if (!confirm("Submit this case for faculty review? You won't be able to edit it after.")) return;
+  if (!confirm("Submit this portfolio for assessment? You won't be able to edit it after.")) return;
   $("submitReview").disabled = true;
   try {
     const rec = await api(`/api/cases/${state.caseId}/submit`, { method: "POST" });
     renderRecord(rec);
     appendMessage("system",
-      `Case submitted for review. AI confidence: ${rec.case.ai_confidence ?? "—"}%. ` +
-      `A reviewer will follow up with a decision.`);
+      `Portfolio submitted for assessment. Provenance Score: ${rec.case.ai_confidence ?? "—"}%. ` +
+      `An assessor will follow up with a decision.`);
   } catch (e) {
     appendMessage("system", `Could not submit: ${e.message}`);
     $("submitReview").disabled = false;
@@ -266,7 +266,7 @@ $("submitReview").addEventListener("click", async () => {
       const t = await api(`/api/cases/${resumeId}/transcript`);
       t.messages.filter((m) => m.role !== "system").forEach((m) =>
         appendMessage(m.role === "user" ? "user" : "ai", m.content));
-      appendMessage("system", `Resumed case ${rec.case.case_code}.`);
+      appendMessage("system", `Resumed portfolio ${rec.case.case_code}.`);
       $("msg").focus();
       return;
     } catch (e) { /* fall through to gate */ }
@@ -291,7 +291,7 @@ async function uploadEvidence(file) {
     if (!res.ok) { appendMessage("system", `Upload failed: ${data.error}`); return; }
     renderRecord(data);
     appendMessage("system", data.suggestion
-      ? `Added ${file.name}. Echo suggests linking it to “${data.suggestion}.”`
+      ? `Added ${file.name}. Vera suggests linking it to “${data.suggestion}.”`
       : `Added ${file.name}.`);
   } catch (e) {
     note.remove();
@@ -307,7 +307,7 @@ $("fileUpload").addEventListener("change", (e) => {
   e.target.value = "";
 });
 
-// drag-and-drop onto the Case Record panel
+// drag-and-drop onto the Portfolio Builder panel
 const recordPane = document.querySelector(".pane-record");
 if (recordPane) {
   ["dragover", "dragenter"].forEach((ev) =>
@@ -320,13 +320,13 @@ if (recordPane) {
   });
 }
 
-// delegated evidence actions across the Competency Map + unsorted tray
+// delegated artifact actions across the Chain of Evidence + unsorted tray
 recordPane.addEventListener("click", async (e) => {
   const t = e.target.closest("[data-accept],[data-unlink],[data-del]");
   if (!t) return;
   if (t.dataset.accept) return mapEvidence(t.dataset.accept, findCompId(t.dataset.name));
   if (t.dataset.unlink) return evidenceAction(`/api/evidence/${t.dataset.unlink}/unlink`, "POST");
-  if (t.dataset.del && confirm("Delete this evidence file?"))
+  if (t.dataset.del && confirm("Delete this artifact?"))
     return evidenceAction(`/api/evidence/${t.dataset.del}`, "DELETE");
 });
 recordPane.addEventListener("change", (e) => {

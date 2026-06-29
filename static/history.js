@@ -1,4 +1,4 @@
-// Applicant Case History — list by NU-ID, detail drawer, continue/delete/feedback.
+// Learner portfolio history — list by NU-ID, detail drawer, continue/delete/feedback.
 const $ = (id) => document.getElementById(id);
 
 function esc(s) {
@@ -15,7 +15,7 @@ async function api(url, opts = {}) {
 }
 
 function statusTag(s) {
-  return `<span class="status-tag" data-status="${(s || "").toLowerCase().replace(/\s+/g, "-")}">${esc(s)}</span>`;
+  return `<span class="status-tag" data-status="${(s || "").toLowerCase().replace(/\s+/g, "-")}">${esc(window.statusLabel(s))}</span>`;
 }
 
 let currentNuid = "";
@@ -35,9 +35,9 @@ function renderList(cases) {
   const el = $("caseList");
   if (!cases.length) {
     el.innerHTML = `<div class="empty-state">
-      <p class="empty-title">No cases yet</p>
-      <p class="empty-sub">Describe your experience to start your first one — it only takes a few minutes.</p>
-      <a href="/chat" class="primary as-btn">Start your first case →</a>
+      <p class="empty-title">No portfolios yet</p>
+      <p class="empty-sub">Tell Vera about your experience to start your first one — it only takes a few minutes.</p>
+      <a href="/chat" class="primary as-btn">Start your first portfolio →</a>
     </div>`;
     return;
   }
@@ -65,7 +65,7 @@ async function openDetail(id) {
   const c = d.case;
   const fb = d.feedback;
   const isDraft = c.status === "Draft";
-  const decisionLabel = { approve: "Credit approved", deny: "Credit denied", revise: "Revision requested" };
+  const decisionLabel = { approve: "Credit awarded", deny: "Credit declined", revise: "Returned for revision" };
 
   const competencyHtml = (d.competencies || []).map((x) =>
     `<li><b>${esc(x.name)}</b> <span class="comp-state">${esc(x.mapping_status)}</span></li>`).join("") || "<li class='muted-empty'>None</li>";
@@ -77,16 +77,16 @@ async function openDetail(id) {
     </div>
     <p class="detail-label">Target course</p><p>${esc(c.target_course || "—")}</p>
     <p class="detail-label">Summary</p><p>${esc(c.summary || "—")}</p>
-    <p class="detail-label">Competencies</p><ul class="detail-list">${competencyHtml}</ul>
+    <p class="detail-label">Claims</p><ul class="detail-list">${competencyHtml}</ul>
     ${fb ? `<div class="feedback-box">
-       <p class="detail-label">Reviewer feedback — ${esc(decisionLabel[fb.decision] || fb.decision)}</p>
+       <p class="detail-label">Assessor feedback — ${esc(decisionLabel[fb.decision] || fb.decision)}</p>
        <p>${esc(fb.notes || "No notes provided.")}</p></div>` : ""}
     <div class="ev-actions" style="margin-top:16px">
       ${isDraft
         ? `<a class="primary as-btn" href="/chat?case=${c.id}">Continue conversation</a>`
         : `<a class="smallbtn" href="/chat?case=${c.id}">View conversation</a>`}
-      <button class="smallbtn" data-advisor="${c.id}">Message advisor</button>
-      ${isDraft ? `<button class="smallbtn danger-btn" data-del="${c.id}">Delete case</button>` : ""}
+      <button class="smallbtn" data-advisor="${c.id}">Message an assessor</button>
+      ${isDraft ? `<button class="smallbtn danger-btn" data-del="${c.id}">Delete portfolio</button>` : ""}
     </div>`;
   $("detailModal").hidden = false;
 }
@@ -102,7 +102,7 @@ $("caseList").addEventListener("click", (e) => {
 });
 $("detailBody").addEventListener("click", async (e) => {
   if (e.target.dataset.del) {
-    if (!confirm("Delete this case permanently?")) return;
+    if (!confirm("Delete this portfolio permanently?")) return;
     try {
       await api(`/api/cases/${e.target.dataset.del}`, { method: "DELETE" });
       $("detailModal").hidden = true;
@@ -110,7 +110,7 @@ $("detailBody").addEventListener("click", async (e) => {
     } catch (err) { alert(err.message); }
   }
   if (e.target.dataset.advisor) {
-    alert("Your advisor will be notified. (Advisor messaging reuses the existing submit-to-advisor path.)");
+    alert("An assessor will be notified. (Messaging reuses the existing submit-for-assessment path.)");
   }
 });
 

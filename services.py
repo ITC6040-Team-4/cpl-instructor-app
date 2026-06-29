@@ -71,11 +71,11 @@ def next_case_code():
     year = db.now_iso()[:4]
     row = db.query_one("SELECT COUNT(*) AS c FROM cases")
     seq = (row["c"] if row else 0) + 1
-    code = f"CPL-{year}-{seq:04d}"
+    code = f"PLA-{year}-{seq:04d}"
     # guarantee uniqueness in the unlikely event of a gap/race
     while db.query_one("SELECT id FROM cases WHERE case_code = ?", [code]):
         seq += 1
-        code = f"CPL-{year}-{seq:04d}"
+        code = f"PLA-{year}-{seq:04d}"
     return code
 
 

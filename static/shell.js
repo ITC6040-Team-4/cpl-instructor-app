@@ -1,12 +1,27 @@
-// App shell: ⌘K command palette, role-aware actions, queue badge, system links.
+// App shell: ⌘K command palette, role-aware actions, docket badge, system links.
 // Self-contained — injects its own DOM, needs no markup on the host page.
+//
+// Presentation-layer label map: stored status values stay unchanged in the DB;
+// these are display-only labels. Exposed globally for every page's render code.
+window.PROVENANCE_STATUS_LABELS = {
+  "Draft": "Draft",
+  "Submitted": "Submitted",
+  "In Review": "In Assessment",
+  "Approved": "Awarded",
+  "Denied": "Declined",
+  "Revision Requested": "Returned",
+  "Escalated": "Referred",
+};
+window.statusLabel = function (s) {
+  return window.PROVENANCE_STATUS_LABELS[s] || s || "";
+};
 (function () {
   const ACTIONS_BASE = [
-    { label: "New case", hint: "Start an evaluation", href: "/chat", icon: "✦" },
-    { label: "Case History", hint: "Your submitted cases", href: "/history", icon: "❏" },
-    { label: "Case Queue", hint: "Review submitted cases", href: "/reviewer", icon: "⚖", reviewer: true },
-    { label: "Settings", hint: "Thresholds, guardrails, catalog", href: "/reviewer/settings", icon: "⚙", reviewer: true },
-    { label: "Sign in as reviewer", hint: "Faculty / advisor portal", href: "/reviewer/login", icon: "→", guestOnly: true },
+    { label: "New portfolio", hint: "Start with Vera", href: "/chat", icon: "✦" },
+    { label: "My Portfolios", hint: "Your portfolios", href: "/history", icon: "❏" },
+    { label: "Docket", hint: "Assess submitted portfolios", href: "/reviewer", icon: "⚖", reviewer: true },
+    { label: "Settings", hint: "Thresholds, guidance, library", href: "/reviewer/settings", icon: "⚙", reviewer: true },
+    { label: "Sign in as assessor", hint: "Faculty / assessor workspace", href: "/reviewer/login", icon: "→", guestOnly: true },
     { label: "Config Status", hint: "Environment configuration", href: "/admin", icon: "·" },
     { label: "Health Check", hint: "/health", href: "/health", icon: "·" },
     { label: "DB Check", hint: "/dbcheck", href: "/dbcheck", icon: "·" },
@@ -31,7 +46,7 @@
     overlay.hidden = true;
     overlay.innerHTML = `
       <div class="cmdk" role="dialog" aria-modal="true" aria-label="Command palette">
-        <input class="cmdk-input" type="text" placeholder="Type a command or search a case…" aria-label="Command palette search" />
+        <input class="cmdk-input" type="text" placeholder="Type a command or search a portfolio…" aria-label="Command palette search" />
         <div class="cmdk-list" role="listbox"></div>
         <div class="cmdk-foot"><span>↑↓ navigate · ↵ open · esc close</span></div>
       </div>`;
@@ -52,7 +67,7 @@
       !q || a.label.toLowerCase().includes(q) || (a.hint || "").toLowerCase().includes(q));
     let html = acts.map((a, i) => row(a.icon, a.label, a.hint, a.href, i === 0 && !caseResults.length, a.badge)).join("");
     if (caseResults.length) {
-      html += `<div class="cmdk-section">Cases</div>` + caseResults.map((c, i) =>
+      html += `<div class="cmdk-section">Portfolios</div>` + caseResults.map((c, i) =>
         row("▸", c.case_code + " · " + (c.applicant_name || ""), c.target_course || "",
             ctx.authenticated ? `/reviewer/case/${c.id}` : `/chat?case=${c.id}`, false)).join("");
     }

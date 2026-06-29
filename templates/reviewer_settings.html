@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Settings — CPL Reviewer</title>
+  <title>Settings — Provenance Assessor</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body class="chat-layout">
   <main class="wrap wrap-chat">
     <div class="topbar">
       <div class="crumbs">
-        <a href="/reviewer">← Case Queue</a>
+        <a href="/reviewer">← Docket</a>
         <span style="margin:0 6px;">/</span><span>Settings</span>
       </div>
       <div class="status"><span class="dot"></span><span>{{ reviewer_name }}</span></div>
@@ -27,10 +27,10 @@
       </div>
 
       <h2 style="margin-top:20px;">AI persona &amp; guardrails</h2>
-      <label class="check"><input type="checkbox" id="strict_domain" /> Strict domain mode (refuse off-topic)</label>
-      <label class="check"><input type="checkbox" id="require_evidence_links" /> Require evidence links for every competency</label>
+      <label class="check"><input type="checkbox" id="strict_domain" /> Focused Mode (refuse off-topic)</label>
+      <label class="check"><input type="checkbox" id="require_evidence_links" /> Require Artifact Links for every claim</label>
       <div class="form-row" style="margin-top:10px;">
-        <label for="system_prompt_addendum">System prompt addendum (appended to Echo)</label>
+        <label for="system_prompt_addendum">Guidance Note (appended to Vera)</label>
         <textarea id="system_prompt_addendum" style="width:100%;min-height:80px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-family:inherit;"></textarea>
       </div>
       <button id="saveSettings" class="primary" style="border-color:var(--accent);background:var(--accent);color:#fff;">Save settings</button>
@@ -40,7 +40,7 @@
     <!-- Routing rules -->
     <section class="card settings-card">
       <h2>Workflow &amp; routing rules</h2>
-      <p class="hint">Applied automatically when a case is submitted.</p>
+      <p class="hint">Applied automatically when a portfolio is submitted.</p>
       <div id="rulesList"></div>
       <div class="rule-builder">
         <select id="r_condition_type">
@@ -53,21 +53,21 @@
           <option value="assign">Assign to</option>
           <option value="flag">Flag as</option>
         </select>
-        <input id="r_action_value" placeholder="e.g. Prof. Turing / Needs Advisor" />
+        <input id="r_action_value" placeholder="e.g. Prof. Turing / Needs Assessor" />
         <button id="addRule" class="smallbtn">Add rule</button>
       </div>
     </section>
 
-    <!-- Catalog / KB -->
+    <!-- Reference Library -->
     <section class="card settings-card">
-      <h2>Course catalog &amp; knowledge base</h2>
-      <p class="hint">Grounds Echo's guidance. Types: course, policy, example.</p>
+      <h2>Reference Library</h2>
+      <p class="hint">Grounds Vera's guidance. Types: course, policy, example.</p>
       <div id="catalogList"></div>
       <div class="catalog-builder">
         <select id="c_type"><option>course</option><option>policy</option><option>example</option></select>
         <input id="c_code" placeholder="Code / key" />
         <input id="c_title" placeholder="Title" />
-        <textarea id="c_content" placeholder="Content used to ground Echo…"></textarea>
+        <textarea id="c_content" placeholder="Content used to ground Vera…"></textarea>
         <button id="addCatalog" class="smallbtn">Add entry</button>
       </div>
     </section>
@@ -75,8 +75,8 @@
     <!-- Demo tools -->
     <section class="card settings-card">
       <h2>Demo tools</h2>
-      <button id="resetSession" class="smallbtn danger-btn">Reset student session</button>
-      <span class="hint">Clears this browser's saved applicant identity only — cases remain in the database.</span>
+      <button id="resetSession" class="smallbtn danger-btn">Reset Learner Session</button>
+      <span class="hint">Clears this browser's saved learner identity only — portfolios remain in the database.</span>
     </section>
   </main>
   <script src="/static/shell.js?v=1.0"></script>
