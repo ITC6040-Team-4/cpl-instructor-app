@@ -9,6 +9,8 @@ from email.message import EmailMessage
 
 # Persistence layer (Azure SQL via pyodbc in prod, SQLite fallback for local dev)
 import db
+import services
+import ai
 
 
 # Explicit template folder for Azure App Service reliability
@@ -283,6 +285,119 @@ def submit_application():
     except Exception as e:
         app.logger.exception("Failed to submit application")
         return jsonify({"error": str(e)}), 500
+
+# ===============================
+# Case-bound Applicant API (Phase 2)
+# ===============================
+def _case_record(case_id):
+    """Full bundle for the applicant Case Record panel."""
+    case = services.get_case(case_id)
+    if not case:
+        return None
+    return {
+        "case": case,
+        "competencies": services.get_competencies(case_id),
+        "evidence": services.get_evidence(case_id),
+    }
+
+
+@app.post("/api/cases")
+def create_case():
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    nuid = (data.get("nuid") or "").strip()
+    if not name or not nuid:
+        return jsonify({"error": "Name and NU-ID are required."}), 400
+    try:
+        case = services.create_case(name, nuid)
+        session["case_id"] = case["id"]
+        # Seed a system message so the transcript has provenance.
+        services.add_message(case["id"], "system",
+                             f"Case opened by {name} (NU-ID {nuid}).")
+        return jsonify(_case_record(case["id"]))
+    except Exception:
+        app.logger.exception("create_case failed")
+        return jsonify({"error": "Could not create case."}), 500
+
+
+@app.get("/api/cases")
+def list_cases():
+    nuid = (request.args.get("nuid") or "").strip()
+    if not nuid:
+        return jsonify({"error": "nuid is required"}), 400
+    return jsonify({"cases": services.list_cases_by_nuid(nuid)})
+
+
+@app.get("/api/cases/<int:case_id>")
+def get_case_api(case_id):
+    rec = _case_record(case_id)
+    if not rec:
+        return jsonify({"error": "Case not found"}), 404
+    return jsonify(rec)
+
+
+@app.get("/api/cases/<int:case_id>/transcript")
+def get_transcript(case_id):
+    if not services.get_case(case_id):
+        return jsonify({"error": "Case not found"}), 404
+    return jsonify({"messages": services.get_messages(case_id)})
+
+
+@app.patch("/api/cases/<int:case_id>")
+def patch_case(case_id):
+    if not services.get_case(case_id):
+        return jsonify({"error": "Case not found"}), 404
+    data = request.get_json(silent=True) or {}
+    fields = {}
+    if "summary" in data:
+        fields["summary"] = (data.get("summary") or "").strip()
+    if "target_course" in data:
+        fields["target_course"] = (data.get("target_course") or "").strip()
+    if fields:
+        services.update_case(case_id, fields)
+        services.recompute_completion(case_id)
+    return jsonify(_case_record(case_id))
+
+
+@app.post("/api/cases/<int:case_id>/message")
+def post_message(case_id):
+    case = services.get_case(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    user_message = (data.get("message") or "").strip()
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    # Persist the user turn first (transcript is the audit log).
+    services.add_message(case_id, "user", user_message)
+
+    # Build history for Echo, ground in settings + relevant catalog.
+    settings = services.get_settings()
+    history = [{"role": m["role"], "content": m["content"]}
+               for m in services.get_messages(case_id, roles=("user", "assistant"))]
+    catalog = services.get_catalog(relevant_to=user_message)
+
+    answer, err = ai.chat(history, settings, catalog)
+    if err:
+        return jsonify({"error": err}), 502
+    services.add_message(case_id, "assistant", answer)
+
+    # Structured extraction -> update Case Record (best-effort).
+    history.append({"role": "assistant", "content": answer})
+    try:
+        extraction, ex_err = ai.extract_case(history)
+        if extraction and not ex_err:
+            services.merge_extraction(case_id, extraction)
+    except Exception:
+        app.logger.exception("extraction failed (non-fatal)")
+    services.recompute_completion(case_id)
+
+    rec = _case_record(case_id)
+    rec["answer"] = answer
+    return jsonify(rec)
+
 
 # ===============================
 # Local Dev Entry Point
