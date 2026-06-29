@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Case History — CPL</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="chat-layout">
+  <main class="wrap wrap-chat">
+    <div class="topbar">
+      <div class="crumbs">
+        <a href="/">← Home</a>
+        <span style="margin: 0 6px;">/</span>
+        <span>Case History</span>
+      </div>
+      <div class="status"><span class="dot"></span><span>Applicant</span></div>
+    </div>
+
+    <!-- Identity gate (by NU-ID) -->
+    <section class="card" id="idGate" aria-label="Find your cases">
+      <h1>Your case history</h1>
+      <p class="sub">Enter your NU-ID to see the cases you've started.</p>
+      <div class="form-row">
+        <label for="nuidInput">NU-ID</label>
+        <input id="nuidInput" type="text" placeholder="e.g. 001234567" />
+      </div>
+      <button id="lookupBtn" class="primary">View my cases</button>
+    </section>
+
+    <section class="card" id="listCard" hidden>
+      <div class="panelTitle">
+        <h2>My cases</h2>
+        <a href="/chat" class="smallbtn">+ New case</a>
+      </div>
+      <div id="caseList"></div>
+    </section>
+  </main>
+
+  <!-- Case detail drawer -->
+  <div id="detailModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Case detail">
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+      <div id="detailBody"></div>
+    </div>
+  </div>
+
+  <script src="/static/history.js?v=1.0"></script>
+</body>
+</html>

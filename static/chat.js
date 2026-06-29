@@ -78,12 +78,17 @@ function renderRecord(rec) {
 
   renderEvidence(rec.evidence || [], comps);
 
-  // submit gating
-  const canSubmit = pct >= state.submitThreshold && c.status === "Draft";
+  // submit gating + composer lock for non-draft cases
+  const isDraft = c.status === "Draft";
+  const canSubmit = pct >= state.submitThreshold && isDraft;
   $("submitReview").disabled = !canSubmit;
-  $("submitHint").textContent = canSubmit
-    ? "Your case is ready to submit."
-    : `Reach ${state.submitThreshold}% to submit (currently ${pct}%).`;
+  $("submitReview").hidden = !isDraft;
+  $("submitHint").textContent = isDraft
+    ? (canSubmit ? "Your case is ready to submit." : `Reach ${state.submitThreshold}% to submit (currently ${pct}%).`)
+    : `This case is ${c.status.toLowerCase()} and is now read-only.`;
+  ["msg", "send", "attachBtn", "targetCourse", "summary"].forEach((id) => {
+    const el = $(id); if (el) el.disabled = !isDraft;
+  });
 }
 
 function labelFor(status) {
@@ -149,6 +154,8 @@ async function startCase() {
   try {
     const rec = await api("/api/cases", { method: "POST", body: JSON.stringify({ name, nuid }) });
     state.caseId = rec.case.id;
+    // Persist local browser identity (cleared by "Reset Student Session").
+    try { localStorage.setItem("cpl_identity", JSON.stringify({ name, nuid })); } catch (_) {}
     $("identityGate").hidden = true;
     $("workspace").hidden = false;
     renderRecord(rec);
@@ -226,9 +233,45 @@ $("copy").addEventListener("click", async () => {
   } catch { alert("Failed to copy transcript."); }
 });
 
-$("submitReview").addEventListener("click", () => {
-  alert("Submit for Review unlocks in the next build step.");
+$("submitReview").addEventListener("click", async () => {
+  if (!confirm("Submit this case for faculty review? You won't be able to edit it after.")) return;
+  $("submitReview").disabled = true;
+  try {
+    const rec = await api(`/api/cases/${state.caseId}/submit`, { method: "POST" });
+    renderRecord(rec);
+    appendMessage("system",
+      `Case submitted for review. AI confidence: ${rec.case.ai_confidence ?? "—"}%. ` +
+      `A reviewer will follow up with a decision.`);
+  } catch (e) {
+    appendMessage("system", `Could not submit: ${e.message}`);
+    $("submitReview").disabled = false;
+  }
 });
+
+// ---------- init: resume existing case or prefill identity ----------
+(async function init() {
+  const params = new URLSearchParams(location.search);
+  const resumeId = params.get("case");
+  if (resumeId) {
+    try {
+      const rec = await api(`/api/cases/${resumeId}`);
+      state.caseId = rec.case.id;
+      $("identityGate").hidden = true;
+      $("workspace").hidden = false;
+      renderRecord(rec);
+      const t = await api(`/api/cases/${resumeId}/transcript`);
+      t.messages.filter((m) => m.role !== "system").forEach((m) =>
+        appendMessage(m.role === "user" ? "user" : "ai", m.content));
+      appendMessage("system", `Resumed case ${rec.case.case_code}.`);
+      $("msg").focus();
+      return;
+    } catch (e) { /* fall through to gate */ }
+  }
+  try {
+    const id = JSON.parse(localStorage.getItem("cpl_identity") || "null");
+    if (id) { $("nameInput").value = id.name || ""; $("nuidInput").value = id.nuid || ""; }
+  } catch (_) {}
+})();
 
 // ---------- evidence ----------
 async function uploadEvidence(file) {

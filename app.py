@@ -400,6 +400,82 @@ def post_message(case_id):
 
 
 # ===============================
+# Submit, delete, history (Phase 4)
+# ===============================
+@app.post("/api/cases/<int:case_id>/submit")
+def submit_case(case_id):
+    case = services.get_case(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    if case["status"] != services.STATUS_DRAFT:
+        return jsonify({"error": f"Case is already {case['status']}."}), 400
+
+    settings = services.get_settings()
+    pct = services.recompute_completion(case_id)
+    submit_threshold = settings.get("submit_threshold", 80)
+    if pct < submit_threshold:
+        return jsonify({"error": f"Case must reach {submit_threshold}% to submit "
+                                 f"(currently {pct}%)."}), 400
+
+    # Advisory AI confidence (human decides). Best-effort.
+    comps = services.get_competencies(case_id)
+    evidence = services.get_evidence(case_id)
+    conf, rationale = None, None
+    try:
+        scored, err = ai.score_confidence(case, comps, evidence)
+        if scored and not err:
+            conf = scored["confidence"]
+            rationale = scored["rationale"]
+    except Exception:
+        app.logger.exception("confidence scoring failed (non-fatal)")
+
+    fields = {"status": services.STATUS_SUBMITTED}
+    if conf is not None:
+        fields["ai_confidence"] = conf
+        fields["ai_confidence_rationale"] = rationale
+    services.update_case(case_id, fields)
+    # Apply institution routing rules (assignee / flags) on submit.
+    services.apply_routing_rules(case_id)
+    services.add_message(case_id, "system", "Case submitted for review.")
+    return jsonify(_case_record(case_id))
+
+
+@app.delete("/api/cases/<int:case_id>")
+def delete_case_api(case_id):
+    case = services.get_case(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    settings = services.get_settings()
+    threshold = settings.get("delete_below_threshold", 50)
+    if (case.get("completion_pct") or 0) >= threshold and case["status"] == services.STATUS_DRAFT:
+        return jsonify({"error": f"Cases at or above {threshold}% completion can't be "
+                                 f"deleted. Continue or submit it instead."}), 400
+    if case["status"] not in (services.STATUS_DRAFT,):
+        return jsonify({"error": "Submitted cases can't be deleted."}), 400
+    services.delete_case(case_id)
+    return jsonify({"status": "deleted"})
+
+
+@app.get("/api/cases/<int:case_id>/detail")
+def case_detail(case_id):
+    case = services.get_case(case_id)
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
+    return jsonify({
+        "case": case,
+        "competencies": services.get_competencies(case_id),
+        "evidence": services.get_evidence(case_id),
+        "messages": services.get_messages(case_id),
+        "feedback": services.latest_feedback(case_id),
+    })
+
+
+@app.get("/history")
+def history_page():
+    return render_template("history.html")
+
+
+# ===============================
 # Evidence API (Phase 3)
 # ===============================
 import storage

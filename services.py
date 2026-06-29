@@ -213,6 +213,58 @@ def delete_evidence(evidence_id):
         _sync_competency_status(comp)
 
 
+def get_routing_rules():
+    return db.query("SELECT * FROM routing_rules ORDER BY id")
+
+
+def apply_routing_rules(case_id):
+    """Evaluate routing rules against a case and set assignee/flags accordingly.
+
+    condition_type: 'course_matches' (glob-ish prefix/contains) | 'confidence_below'
+    action_type:    'assign' (assignee_name) | 'flag' (flag label)
+    """
+    case = get_case(case_id)
+    if not case:
+        return
+    course = (case.get("target_course") or "").lower()
+    conf = case.get("ai_confidence")
+    assignee = case.get("assignee")
+    flags = [f for f in (case.get("flags") or "").split(",") if f.strip()]
+
+    for rule in get_routing_rules():
+        ctype = rule.get("condition_type")
+        cval = (rule.get("condition_value") or "").strip()
+        matched = False
+        if ctype == "course_matches" and cval:
+            pat = cval.lower().rstrip("*")
+            matched = course.startswith(pat) or (pat in course)
+        elif ctype == "confidence_below" and cval:
+            try:
+                matched = conf is not None and conf < int(cval)
+            except ValueError:
+                matched = False
+        if not matched:
+            continue
+        if rule.get("action_type") == "assign" and rule.get("action_value"):
+            assignee = rule["action_value"]
+        elif rule.get("action_type") == "flag" and rule.get("action_value"):
+            if rule["action_value"] not in flags:
+                flags.append(rule["action_value"])
+
+    update_case(case_id, {"assignee": assignee, "flags": ",".join(flags)})
+
+
+def get_decisions(case_id):
+    return db.query(
+        "SELECT * FROM decisions WHERE case_id = ? ORDER BY id DESC", [case_id])
+
+
+def latest_feedback(case_id):
+    """Most recent reviewer decision + notes, surfaced to the applicant."""
+    rows = get_decisions(case_id)
+    return rows[0] if rows else None
+
+
 def _sync_competency_status(competency_id):
     """A competency is 'mapped' if any evidence links to it, else 'unlinked'."""
     if not competency_id:
