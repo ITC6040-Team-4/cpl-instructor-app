@@ -307,6 +307,34 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important;
 .feedback-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 14px; margin-top: 16px; }
 
 /* ============================
+   Reviewer Queue (Phase 5)
+============================ */
+.wrap-wide { max-width: 1180px; }
+.queue-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.queue-tools { display: flex; gap: 10px; align-items: center; }
+.queue-tools input { padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-family: inherit; min-width: 240px; }
+.queue-tools input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,16,46,0.12); }
+#exportBtn { text-decoration: none; }
+
+.filter-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 6px; flex-wrap: wrap; }
+.tab { border: none; background: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 14px; color: var(--muted); font-weight: 600; }
+.tab:hover { background: none; color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-count { display: inline-block; min-width: 20px; padding: 1px 7px; margin-left: 4px; border-radius: 999px; background: #eef2f7; font-size: 12px; color: var(--muted); }
+.tab.active .tab-count { background: var(--accent); color: #fff; }
+
+.table-wrap { overflow-x: auto; }
+.queue-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.queue-table thead th { position: sticky; top: 0; background: var(--card); text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; padding: 12px 10px; border-bottom: 2px solid var(--border); cursor: pointer; white-space: nowrap; }
+.queue-table thead th:hover { color: var(--text); }
+.queue-table tbody td { padding: 12px 10px; border-bottom: 1px solid var(--border); }
+.queue-table tbody tr { cursor: pointer; transition: background 120ms ease; }
+.queue-table tbody tr:hover { background: #f9fafb; }
+.conf-cell { display: flex; align-items: center; gap: 8px; }
+.mini-dial { width: 22px; height: 22px; border-radius: 50%; flex: none; background: conic-gradient(var(--c) calc(var(--pct,0)*1%), #e5e7eb 0); position: relative; }
+.mini-dial::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--card); }
+
+/* ============================
    Media Queries
 ============================ */
 @media (max-width: 980px) {

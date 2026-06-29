@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Case Queue — CPL Reviewer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="chat-layout">
+  <main class="wrap wrap-wide">
+    <div class="topbar">
+      <div class="crumbs">
+        <a href="/">← Home</a>
+        <span style="margin:0 6px;">/</span>
+        <span>Case Queue</span>
+      </div>
+      <div class="status">
+        <span class="dot"></span>
+        <span>{{ reviewer_name }}</span>
+        <a href="/reviewer/settings" class="smallbtn" style="margin-left:10px;">Settings</a>
+        <button id="logoutBtn" class="smallbtn">Sign out</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="queue-head">
+        <h1>Case Queue</h1>
+        <div class="queue-tools">
+          <input id="search" type="search" placeholder="Search applicant, case ID, course…" />
+          <a id="exportBtn" class="smallbtn" href="#">Export CSV</a>
+        </div>
+      </div>
+
+      <div class="filter-tabs" id="filterTabs">
+        <button data-filter="all" class="tab active">All <span class="tab-count" data-count="all">0</span></button>
+        <button data-filter="needs_review" class="tab">Needs Review <span class="tab-count" data-count="needs_review">0</span></button>
+        <button data-filter="in_progress" class="tab">In Progress <span class="tab-count" data-count="in_progress">0</span></button>
+        <button data-filter="completed" class="tab">Completed <span class="tab-count" data-count="completed">0</span></button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th data-sort="case_code">Case ID</th>
+              <th data-sort="applicant_name">Applicant</th>
+              <th data-sort="target_course">Target Course</th>
+              <th data-sort="status">Status</th>
+              <th data-sort="completion_pct">Completion</th>
+              <th data-sort="ai_confidence">AI Confidence</th>
+              <th data-sort="updated_at">Updated</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="queueBody"></tbody>
+        </table>
+      </div>
+      <div id="queueEmpty" class="empty-state" hidden>
+        <p class="empty-title">Nothing here yet</p>
+        <p class="empty-sub">When applicants submit cases, they'll appear in this queue, sorted by confidence.</p>
+      </div>
+    </section>
+  </main>
+  <script src="/static/reviewer.js?v=1.0"></script>
+</body>
+</html>

@@ -584,6 +584,83 @@ def download_evidence(eid):
 
 
 # ===============================
+# Reviewer auth + queue (Phase 5)
+# ===============================
+import auth
+import csv as _csv
+import io as _io
+from flask import Response, redirect, url_for
+
+
+@app.get("/reviewer/login")
+def reviewer_login_page():
+    if auth.is_authenticated():
+        return redirect("/reviewer")
+    return render_template("reviewer_login.html")
+
+
+@app.post("/api/reviewer/login")
+def reviewer_login():
+    data = request.get_json(silent=True) or {}
+    reviewer = auth.verify_login(data.get("email"), data.get("password"))
+    if not reviewer:
+        return jsonify({"error": "Invalid email or password."}), 401
+    auth.login_session(reviewer)
+    return jsonify({"status": "ok", "name": reviewer.get("name") or reviewer["email"]})
+
+
+@app.post("/api/reviewer/logout")
+def reviewer_logout():
+    auth.logout_session()
+    return jsonify({"status": "ok"})
+
+
+@app.get("/reviewer")
+def reviewer_queue_page():
+    if not auth.is_authenticated():
+        return redirect("/reviewer/login")
+    return render_template("reviewer_queue.html",
+                           reviewer_name=auth.current_reviewer().get("name", "Reviewer"))
+
+
+@app.get("/api/reviewer/cases")
+@auth.require_reviewer
+def reviewer_cases():
+    status = request.args.get("status", "all")
+    q = request.args.get("q", "")
+    return jsonify({
+        "cases": services.list_review_cases(status, q),
+        "counts": services.queue_counts(),
+    })
+
+
+@app.get("/api/reviewer/cases.csv")
+@auth.require_reviewer
+def reviewer_cases_csv():
+    status = request.args.get("status", "all")
+    q = request.args.get("q", "")
+    rows = services.list_review_cases(status, q)
+    buf = _io.StringIO()
+    writer = _csv.writer(buf)
+    writer.writerow(["Case ID", "Applicant", "Target Course", "Status",
+                     "Completion %", "AI Confidence", "Date Updated"])
+    for r in rows:
+        writer.writerow([r.get("case_code"), r.get("applicant_name"),
+                         r.get("target_course"), r.get("status"),
+                         r.get("completion_pct"), r.get("ai_confidence"),
+                         r.get("updated_at")])
+    return Response(buf.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=cpl-cases.csv"})
+
+
+@app.get("/api/reviewer/me")
+def reviewer_me():
+    r = auth.current_reviewer()
+    counts = services.queue_counts() if r else {}
+    return jsonify({"authenticated": bool(r), "reviewer": r, "counts": counts})
+
+
+# ===============================
 # Local Dev Entry Point
 # ===============================
 if __name__ == "__main__":

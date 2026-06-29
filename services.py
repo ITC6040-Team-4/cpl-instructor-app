@@ -213,6 +213,36 @@ def delete_evidence(evidence_id):
         _sync_competency_status(comp)
 
 
+QUEUE_FILTERS = {
+    "needs_review": [STATUS_SUBMITTED, STATUS_IN_REVIEW],
+    "in_progress": [STATUS_DRAFT],
+    "completed": [STATUS_APPROVED, STATUS_DENIED, STATUS_REVISION, STATUS_ESCALATED],
+}
+
+
+def list_review_cases(status_filter="all", q=""):
+    rows = db.query("SELECT * FROM cases ORDER BY updated_at DESC")
+    if status_filter and status_filter != "all":
+        allowed = QUEUE_FILTERS.get(status_filter, [])
+        rows = [r for r in rows if r.get("status") in allowed]
+    q = (q or "").strip().lower()
+    if q:
+        rows = [r for r in rows if q in (
+            f"{r.get('applicant_name','')} {r.get('case_code','')} "
+            f"{r.get('target_course','')}").lower()]
+    return rows
+
+
+def queue_counts():
+    rows = db.query("SELECT status FROM cases")
+    counts = {"all": len(rows), "needs_review": 0, "in_progress": 0, "completed": 0}
+    for r in rows:
+        for key, statuses in QUEUE_FILTERS.items():
+            if r.get("status") in statuses:
+                counts[key] += 1
+    return counts
+
+
 def get_routing_rules():
     return db.query("SELECT * FROM routing_rules ORDER BY id")
 
