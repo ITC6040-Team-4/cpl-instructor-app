@@ -6,17 +6,7 @@ import PyPDF2
 import io
 import smtplib
 from email.message import EmailMessage
-# pyodbc is only used when SQL_CONNECTION_STRING is set (Azure SQL). Guard the
-# import so local dev (SQLite fallback, no ODBC driver) can still run.
-try:
-    import pyodbc
-except ImportError:
-    pyodbc = None
-
-# Persistence layer (Azure SQL via pyodbc in prod, SQLite fallback for local dev)
-import db
-import services
-import ai
+import pyodbc
 
 
 app = Flask(__name__, template_folder="templates")
@@ -24,40 +14,9 @@ app = Flask(__name__, template_folder="templates")
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "cpl-dev-secret-key-2026")
 chat_memory = {}
 
-# Initialize the database schema + seed on startup. Guarded so a transient DB
-# outage degrades gracefully (routes that need the DB will surface their own
-# errors) rather than crashing the whole worker on boot.
-try:
-    db.init_db()
-    app.logger.info("Database initialized (backend=%s)", db.backend())
-except Exception:
-    app.logger.exception("Database initialization failed at startup")
-
-# Reject oversized request bodies early (evidence cap is 50MB; allow margin).
-app.config["MAX_CONTENT_LENGTH"] = 55 * 1024 * 1024
-
-
-@app.errorhandler(413)
-def too_large(_e):
-    return jsonify({"error": "File too large. The limit is 50MB."}), 413
-
-
-@app.errorhandler(404)
-def not_found(e):
-    if request.path.startswith("/api/"):
-        return jsonify({"error": "Not found"}), 404
-    return e, 404
-
-
-@app.errorhandler(500)
-def server_error(_e):
-    if request.path.startswith("/api/"):
-        return jsonify({"error": "Internal server error"}), 500
-    return "Internal server error", 500
-
 
 # ===============================
-# Usage Limiter (persistent, SQL-backed; applies to all Echo chat calls)
+# Usage Limiter
 # ===============================
 MAX_CHAT_REQUESTS = int(os.getenv("MAX_CHAT_REQUESTS", "300"))
 
@@ -161,26 +120,19 @@ def chat_page():
 
 @app.get("/admin")
 def admin_page():
-    def mark(name):
-        return "✅ set" if os.getenv(name) else "❌ missing"
-    # Persistent, SQL-backed usage count (survives restarts); falls back gracefully.
     try:
-        usage_count = get_usage_count() if os.getenv("SQL_CONNECTION_STRING") else "N/A (local)"
+        usage_count = get_usage_count() if os.getenv("SQL_CONNECTION_STRING") else "N/A"
     except Exception:
         usage_count = "Unavailable"
+
     status = {
-        "AZURE_OPENAI_ENDPOINT": mark("AZURE_OPENAI_ENDPOINT"),
-        "AZURE_OPENAI_API_KEY": mark("AZURE_OPENAI_API_KEY"),
+        "AZURE_OPENAI_ENDPOINT": "✅ set" if os.getenv("AZURE_OPENAI_ENDPOINT") else "❌ missing",
+        "AZURE_OPENAI_API_KEY": "✅ set" if os.getenv("AZURE_OPENAI_API_KEY") else "❌ missing",
         "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION") or "(default: 2024-12-01-preview)",
-        "AZURE_OPENAI_DEPLOYMENT": mark("AZURE_OPENAI_DEPLOYMENT"),
-        "SQL_CONNECTION_STRING": mark("SQL_CONNECTION_STRING"),
-        "DB backend (active)": db.backend(),
-        "AZURE_STORAGE_CONNECTION_STRING": mark("AZURE_STORAGE_CONNECTION_STRING"),
-        "Artifact storage": "Azure Blob" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "Inline fallback (<1MB)",
-        "SEED_REVIEWER_EMAIL": mark("SEED_REVIEWER_EMAIL"),
+        "AZURE_OPENAI_DEPLOYMENT": "✅ set" if os.getenv("AZURE_OPENAI_DEPLOYMENT") else "❌ missing",
+        "SQL_CONNECTION_STRING": "✅ set" if os.getenv("SQL_CONNECTION_STRING") else "❌ missing",
         "MAX_CHAT_REQUESTS": MAX_CHAT_REQUESTS,
         "CURRENT_CHAT_REQUESTS": usage_count,
-        "Session chat calls (this worker)": str(ai.current_chat_requests()),
     }
     return render_template("admin.html", status=status)
 
@@ -212,13 +164,18 @@ def versions():
 # ===============================
 @app.get("/dbcheck")
 def dbcheck():
+    conn_str = os.getenv("SQL_CONNECTION_STRING")
+    if not conn_str:
+        return jsonify({"error": "Missing SQL_CONNECTION_STRING"}), 500
+
     try:
-        row = db.query_one("SELECT 1 AS result")
-        return jsonify({
-            "status": "DB Connected",
-            "result": int(row["result"]),
-            "backend": db.backend(),
-        })
+        conn = pyodbc.connect(conn_str, timeout=10)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        row = cursor.fetchone()
+        conn.close()
+
+        return jsonify({"status": "DB Connected", "result": int(row[0])})
     except Exception as e:
         app.logger.exception("DB connection check failed")
         return jsonify({
@@ -297,25 +254,25 @@ def api_chat():
                 {
                     "role": "system",
                     "content": (
-                        "You are Vera, the intake guide for Provenance, a Credit for Prior Learning service at Northeastern University. "
-                        "You help learners across ALL colleges establish the provenance of their skills. Introduce yourself as Vera.\n\n"
+                        "You are a master academic Evaluator Assistant for Northeastern University's Credit for Prior Learning (CPL) program. "
+                        "You evaluate students for ALL colleges across Northeastern University.\n\n"
 
                         "YOUR FIRST TASK:\n"
-                        "You MUST begin the conversation by politely asking the learner for their Full Name and Northeastern Student ID. "
+                        "You MUST begin the conversation by politely asking the student for their Full Name and Northeastern Student ID. "
                         "Do not ask any interview questions until you have this information.\n\n"
 
-                        "YOUR REFERENCE KNOWLEDGE:\n"
+                        "YOUR INTERVIEW KNOWLEDGE BASE:\n"
                         "Rely on your extensive pre-trained knowledge of standard university curricula. "
-                        "When a learner describes their professional background, dynamically identify specific Northeastern courses that align with their skills.\n\n"
+                        "When a student describes their professional background, dynamically identify specific Northeastern courses that align with their skills.\n\n"
 
                         "CRITICAL RULES YOU MUST STRICTLY FOLLOW:\n"
                         "- BE EXTREMELY CONCISE. Acknowledge the user's answer in a single short sentence. Do NOT summarize or repeat their previous answers back to them.\n"
-                        "- MEANINGFUL FOLLOW-UP QUESTIONS: Ask EXACTLY ONE short, skill-based question at a time. Analyze the user's previous answer and ask highly specific follow-ups to probe the depth of their skills. Explicitly ask about 'measurable outcomes', 'challenges you solved', or specific 'tools and techniques used'.\n"
+                        "- MEANINGFUL FOLLOW-UP QUESTIONS: Ask EXACTLY ONE short, competency-based interview question at a time. Analyze the user's previous answer and ask highly specific follow-ups to probe the depth of their competency. Explicitly ask about 'measurable outcomes', 'challenges you solved', or specific 'tools and techniques used'.\n"
                         "- Always wait for the user to answer before moving to the next question.\n"
-                        "- PROACTIVE ARTIFACT GATHERING: You must explicitly reference 'documentation or artifacts' that could support the learner's claims. If they mention a certification, degree, or tangible project, proactively ask them to upload corroborating proof (e.g., certificates, transcripts, or architecture diagrams) using the 'Attach' button.\n"
-                        "- POLICY SAFETY (NO GUARANTEES): Do NOT assess, score, or promise credit. Never guarantee outcomes. State clearly that you are only assembling the portfolio for the faculty assessors.\n"
-                        "- If the user uploads a document, extract relevant artifacts to map to potential course outcomes.\n"
-                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the learner's responses and uploaded artifacts. Once you confidently deduce that you have gathered enough concrete proof to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out. Thank the learner briefly and explicitly instruct them to submit the portfolio for assessment using the button below the chat."
+                        "- PROACTIVE EVIDENCE & ARTIFACT GATHERING: You must explicitly reference 'documentation or artifacts' that could support the student's claims. If they mention a certification, degree, or tangible project, proactively ask them to upload corroborating proof (e.g., certificates, transcripts, or architecture diagrams) using the 'Attach' button.\n"
+                        "- POLICY SAFETY (NO GUARANTEES): Do NOT evaluate, score, or promise credit. Never guarantee outcomes. State clearly that you are only gathering evidence for the appropriate faculty committee.\n"
+                        "- If the user uploads a document, extract relevant evidence to map to potential outcomes.\n"
+                        "- THE DYNAMIC STOPPING CONDITION: Continuously evaluate the depth of the student's responses and uploaded artifacts. Once you confidently deduce that you have gathered enough concrete proof to map their skills to relevant Northeastern course outcomes, NATURALLY CONCLUDE the interview. Do not drag it out. Thank the student briefly and explicitly instruct them to click the 'Submit to Advisor' button below the chat to send their official transcript for faculty review."
                     )
                 }
             ]
@@ -363,8 +320,8 @@ def submit_application():
         summary_prompt.append({
             "role": "user",
             "content": (
-                "The interview is over. Please read our entire conversation above and generate a formal email to the faculty assessor. "
-                "Extract the learner's Name and Student ID. Summarize the artifacts they provided, the documents they uploaded, and the specific academic areas their experience maps to. "
+                "The interview is over. Please read our entire conversation above and generate a formal email to the CPL Faculty Advisor. "
+                "Extract the student's Name and Student ID. Summarize the evidence they provided, the documents they uploaded, and the specific academic areas their experience maps to. "
                 "Do NOT include pleasantries like 'Sure, here is the email', just output the raw email text."
             )
         })
@@ -391,7 +348,7 @@ def submit_application():
 
         msg = EmailMessage()
         msg.set_content(email_body)
-        msg["Subject"] = "New Provenance portfolio ready for assessment"
+        msg["Subject"] = "New CPL Application Ready for Review"
         msg["From"] = bot_email
         msg["To"] = advisor_email
 
@@ -400,552 +357,11 @@ def submit_application():
         server.send_message(msg)
         server.quit()
 
-        return jsonify({"status": "Submitted to the assessor."})
+        return jsonify({"status": "Email successfully sent to the advisor!"})
 
     except Exception as e:
         app.logger.exception("Failed to submit application")
         return jsonify({"error": str(e)}), 500
-
-
-# ===============================
-# Case-bound Applicant API (Phase 2)
-# ===============================
-def _case_record(case_id):
-    """Full bundle for the applicant Case Record panel."""
-    case = services.get_case(case_id)
-    if not case:
-        return None
-    return {
-        "case": case,
-        "competencies": services.get_competencies(case_id),
-        "evidence": services.get_evidence(case_id),
-    }
-
-
-@app.post("/api/cases")
-def create_case():
-    data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    nuid = (data.get("nuid") or "").strip()
-    if not name or not nuid:
-        return jsonify({"error": "Name and NU-ID are required."}), 400
-    try:
-        case = services.create_case(name, nuid)
-        session["case_id"] = case["id"]
-        # Seed a system message so the transcript has provenance.
-        services.add_message(case["id"], "system",
-                             f"Portfolio opened by {name} (NU-ID {nuid}).")
-        return jsonify(_case_record(case["id"]))
-    except Exception:
-        app.logger.exception("create_case failed")
-        return jsonify({"error": "Could not create portfolio."}), 500
-
-
-@app.get("/api/cases")
-def list_cases():
-    nuid = (request.args.get("nuid") or "").strip()
-    if not nuid:
-        return jsonify({"error": "nuid is required"}), 400
-    return jsonify({"cases": services.list_cases_by_nuid(nuid)})
-
-
-@app.get("/api/cases/<int:case_id>")
-def get_case_api(case_id):
-    rec = _case_record(case_id)
-    if not rec:
-        return jsonify({"error": "Portfolio not found"}), 404
-    return jsonify(rec)
-
-
-@app.get("/api/cases/<int:case_id>/transcript")
-def get_transcript(case_id):
-    if not services.get_case(case_id):
-        return jsonify({"error": "Portfolio not found"}), 404
-    return jsonify({"messages": services.get_messages(case_id)})
-
-
-@app.patch("/api/cases/<int:case_id>")
-def patch_case(case_id):
-    if not services.get_case(case_id):
-        return jsonify({"error": "Portfolio not found"}), 404
-    data = request.get_json(silent=True) or {}
-    fields = {}
-    if "summary" in data:
-        fields["summary"] = (data.get("summary") or "").strip()
-    if "target_course" in data:
-        fields["target_course"] = (data.get("target_course") or "").strip()
-    if fields:
-        services.update_case(case_id, fields)
-        services.recompute_completion(case_id)
-    return jsonify(_case_record(case_id))
-
-
-@app.post("/api/cases/<int:case_id>/message")
-def post_message(case_id):
-    case = services.get_case(case_id)
-    if not case:
-        return jsonify({"error": "Portfolio not found"}), 404
-
-    data = request.get_json(silent=True) or {}
-    user_message = (data.get("message") or "").strip()
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
-
-    # Persistent, SQL-backed usage cap (shared with legacy /api/chat). Fails open
-    # when the counter is unavailable (e.g. local SQLite dev) so dev isn't blocked.
-    if os.getenv("SQL_CONNECTION_STRING"):
-        try:
-            if get_usage_count() >= MAX_CHAT_REQUESTS:
-                return jsonify({"error": usage_limit_reached_message()}), 429
-        except Exception:
-            app.logger.exception("usage check failed (continuing)")
-
-    # Persist the user turn first (transcript is the audit log).
-    services.add_message(case_id, "user", user_message)
-
-    # Build history for Echo, ground in settings + relevant catalog.
-    settings = services.get_settings()
-    history = [{"role": m["role"], "content": m["content"]}
-               for m in services.get_messages(case_id, roles=("user", "assistant"))]
-    catalog = services.get_catalog(relevant_to=user_message)
-
-    answer, err = ai.chat(history, settings, catalog)
-    if err:
-        return jsonify({"error": err}), 502
-    services.add_message(case_id, "assistant", answer)
-
-    # Count this successful Echo call against the persistent usage cap.
-    if os.getenv("SQL_CONNECTION_STRING"):
-        try:
-            increment_usage()
-        except Exception:
-            app.logger.exception("usage increment failed (continuing)")
-
-    # Structured extraction -> update Case Record (best-effort).
-    history.append({"role": "assistant", "content": answer})
-    try:
-        extraction, ex_err = ai.extract_case(history)
-        if extraction and not ex_err:
-            services.merge_extraction(case_id, extraction)
-    except Exception:
-        app.logger.exception("extraction failed (non-fatal)")
-    services.recompute_completion(case_id)
-
-    rec = _case_record(case_id)
-    rec["answer"] = answer
-    return jsonify(rec)
-
-
-# ===============================
-# Submit, delete, history (Phase 4)
-# ===============================
-@app.post("/api/cases/<int:case_id>/submit")
-def submit_case(case_id):
-    case = services.get_case(case_id)
-    if not case:
-        return jsonify({"error": "Portfolio not found"}), 404
-    if case["status"] != services.STATUS_DRAFT:
-        return jsonify({"error": "This portfolio has already been submitted for assessment."}), 400
-
-    settings = services.get_settings()
-    pct = services.recompute_completion(case_id)
-    submit_threshold = settings.get("submit_threshold", 80)
-    if pct < submit_threshold:
-        return jsonify({"error": f"Portfolio must reach {submit_threshold}% to submit for "
-                                 f"assessment (currently {pct}%)."}), 400
-
-    # Advisory AI confidence (human decides). Best-effort.
-    comps = services.get_competencies(case_id)
-    evidence = services.get_evidence(case_id)
-    conf, rationale = None, None
-    try:
-        scored, err = ai.score_confidence(case, comps, evidence)
-        if scored and not err:
-            conf = scored["confidence"]
-            rationale = scored["rationale"]
-    except Exception:
-        app.logger.exception("confidence scoring failed (non-fatal)")
-
-    fields = {"status": services.STATUS_SUBMITTED}
-    if conf is not None:
-        fields["ai_confidence"] = conf
-        fields["ai_confidence_rationale"] = rationale
-    services.update_case(case_id, fields)
-    # Apply institution routing rules (assignee / flags) on submit.
-    services.apply_routing_rules(case_id)
-    services.add_message(case_id, "system", "Portfolio submitted for assessment.")
-    return jsonify(_case_record(case_id))
-
-
-@app.delete("/api/cases/<int:case_id>")
-def delete_case_api(case_id):
-    case = services.get_case(case_id)
-    if not case:
-        return jsonify({"error": "Portfolio not found"}), 404
-    settings = services.get_settings()
-    threshold = settings.get("delete_below_threshold", 50)
-    if (case.get("completion_pct") or 0) >= threshold and case["status"] == services.STATUS_DRAFT:
-        return jsonify({"error": f"Portfolios at or above {threshold}% progress can't be "
-                                 f"deleted. Continue or submit it instead."}), 400
-    if case["status"] not in (services.STATUS_DRAFT,):
-        return jsonify({"error": "Submitted portfolios can't be deleted."}), 400
-    services.delete_case(case_id)
-    return jsonify({"status": "deleted"})
-
-
-@app.get("/api/cases/<int:case_id>/detail")
-def case_detail(case_id):
-    case = services.get_case(case_id)
-    if not case:
-        return jsonify({"error": "Portfolio not found"}), 404
-    return jsonify({
-        "case": case,
-        "competencies": services.get_competencies(case_id),
-        "evidence": services.get_evidence(case_id),
-        "messages": services.get_messages(case_id),
-        "feedback": services.latest_feedback(case_id),
-    })
-
-
-@app.get("/history")
-def history_page():
-    return render_template("history.html")
-
-
-# ===============================
-# Evidence API (Phase 3)
-# ===============================
-import storage
-
-
-@app.post("/api/cases/<int:case_id>/evidence")
-def upload_evidence(case_id):
-    case = services.get_case(case_id)
-    if not case:
-        return jsonify({"error": "Portfolio not found"}), 404
-    f = request.files.get("file")
-    if not f or not f.filename:
-        return jsonify({"error": "No file provided"}), 400
-
-    data = f.read()
-    ok, err = storage.validate(f.filename, len(data))
-    if not ok:
-        return jsonify({"error": err}), 400
-
-    try:
-        stored = storage.save(case_id, f.filename, data, f.mimetype)
-    except Exception:
-        app.logger.exception("evidence save failed")
-        return jsonify({"error": "Could not store the file."}), 500
-
-    extracted = storage.extract_text(f.filename, data, f.mimetype)
-    eid = services.add_evidence(case_id, f.filename, len(data), f.mimetype, stored, extracted)
-
-    # AI mapping suggestion against current competencies (best-effort).
-    suggestion = None
-    comps = services.get_competencies(case_id)
-    if comps:
-        try:
-            sug, sug_err = ai.suggest_mapping(f.filename, extracted, comps)
-            if sug and not sug_err and sug.get("competency"):
-                suggestion = sug.get("competency")
-                services.set_evidence_suggestion(eid, suggestion)
-        except Exception:
-            app.logger.exception("mapping suggestion failed (non-fatal)")
-
-    services.recompute_completion(case_id)
-    rec = _case_record(case_id)
-    rec["uploaded_id"] = eid
-    rec["suggestion"] = suggestion
-    return jsonify(rec)
-
-
-@app.post("/api/evidence/<int:eid>/link")
-def link_evidence_api(eid):
-    row = services.get_evidence_row(eid)
-    if not row:
-        return jsonify({"error": "Artifact not found"}), 404
-    data = request.get_json(silent=True) or {}
-    comp_id = data.get("competency_id")
-    if not comp_id:
-        return jsonify({"error": "competency_id required"}), 400
-    comp = db.query_one("SELECT id FROM competencies WHERE id = ? AND case_id = ?",
-                        [comp_id, row["case_id"]])
-    if not comp:
-        return jsonify({"error": "Claim not found for this portfolio"}), 400
-    services.link_evidence(eid, comp_id)
-    services.recompute_completion(row["case_id"])
-    return jsonify(_case_record(row["case_id"]))
-
-
-@app.post("/api/evidence/<int:eid>/unlink")
-def unlink_evidence_api(eid):
-    row = services.get_evidence_row(eid)
-    if not row:
-        return jsonify({"error": "Artifact not found"}), 404
-    services.unlink_evidence(eid)
-    services.recompute_completion(row["case_id"])
-    return jsonify(_case_record(row["case_id"]))
-
-
-@app.delete("/api/evidence/<int:eid>")
-def delete_evidence_api(eid):
-    row = services.get_evidence_row(eid)
-    if not row:
-        return jsonify({"error": "Artifact not found"}), 404
-    try:
-        storage.delete(row)
-    except Exception:
-        app.logger.exception("storage delete failed (continuing)")
-    services.delete_evidence(eid)
-    services.recompute_completion(row["case_id"])
-    return jsonify(_case_record(row["case_id"]))
-
-
-@app.get("/api/evidence/<int:eid>/download")
-def download_evidence(eid):
-    row = services.get_evidence_row(eid)
-    if not row:
-        return jsonify({"error": "Artifact not found"}), 404
-    # Reviewer-gated access to others' files is enforced once auth lands (Phase 5);
-    # applicants can fetch their own case evidence.
-    try:
-        data = storage.get_bytes(row)
-    except Exception:
-        app.logger.exception("evidence download failed")
-        return jsonify({"error": "Could not retrieve the file."}), 500
-    from flask import Response
-    resp = Response(data, mimetype=row.get("mime_type") or "application/octet-stream")
-    resp.headers["Content-Disposition"] = f'inline; filename="{row.get("filename")}"'
-    return resp
-
-
-# ===============================
-# Reviewer auth + queue (Phase 5)
-# ===============================
-import auth
-import csv as _csv
-import io as _io
-from flask import Response, redirect, url_for
-
-
-@app.get("/reviewer/login")
-def reviewer_login_page():
-    if auth.is_authenticated():
-        return redirect("/reviewer")
-    return render_template("reviewer_login.html")
-
-
-@app.post("/api/reviewer/login")
-def reviewer_login():
-    data = request.get_json(silent=True) or {}
-    reviewer = auth.verify_login(data.get("email"), data.get("password"))
-    if not reviewer:
-        return jsonify({"error": "Invalid email or password."}), 401
-    auth.login_session(reviewer)
-    return jsonify({"status": "ok", "name": reviewer.get("name") or reviewer["email"]})
-
-
-@app.post("/api/reviewer/logout")
-def reviewer_logout():
-    auth.logout_session()
-    return jsonify({"status": "ok"})
-
-
-@app.get("/reviewer")
-def reviewer_queue_page():
-    if not auth.is_authenticated():
-        return redirect("/reviewer/login")
-    return render_template("reviewer_queue.html",
-                           reviewer_name=auth.current_reviewer().get("name", "Reviewer"))
-
-
-@app.get("/api/reviewer/cases")
-@auth.require_reviewer
-def reviewer_cases():
-    status = request.args.get("status", "all")
-    q = request.args.get("q", "")
-    return jsonify({
-        "cases": services.list_review_cases(status, q),
-        "counts": services.queue_counts(),
-    })
-
-
-@app.get("/api/reviewer/cases.csv")
-@auth.require_reviewer
-def reviewer_cases_csv():
-    status = request.args.get("status", "all")
-    q = request.args.get("q", "")
-    rows = services.list_review_cases(status, q)
-    buf = _io.StringIO()
-    writer = _csv.writer(buf)
-    writer.writerow(["Portfolio ID", "Learner", "Target Course", "Status",
-                     "Completion %", "AI Confidence", "Date Updated"])
-    for r in rows:
-        writer.writerow([r.get("case_code"), r.get("applicant_name"),
-                         r.get("target_course"), r.get("status"),
-                         r.get("completion_pct"), r.get("ai_confidence"),
-                         r.get("updated_at")])
-    return Response(buf.getvalue(), mimetype="text/csv",
-                    headers={"Content-Disposition": "attachment; filename=cpl-cases.csv"})
-
-
-@app.get("/reviewer/case/<int:case_id>")
-def reviewer_case_page(case_id):
-    if not auth.is_authenticated():
-        return redirect("/reviewer/login")
-    return render_template("reviewer_case.html",
-                           reviewer_name=auth.current_reviewer().get("name", "Reviewer"))
-
-
-@app.get("/api/reviewer/cases/<int:case_id>")
-@auth.require_reviewer
-def reviewer_case_detail(case_id):
-    case = services.get_case(case_id)
-    if not case:
-        return jsonify({"error": "Portfolio not found"}), 404
-    services.mark_in_review(case_id)
-    case = services.get_case(case_id)
-    return jsonify({
-        "case": case,
-        "competencies": services.get_competencies(case_id),
-        "evidence": services.get_evidence(case_id),
-        "messages": services.get_messages(case_id),
-        "decisions": services.get_decisions(case_id),
-        "escalations": services.get_escalations(case_id),
-    })
-
-
-@app.post("/api/reviewer/cases/<int:case_id>/decision")
-@auth.require_reviewer
-def reviewer_decision(case_id):
-    if not services.get_case(case_id):
-        return jsonify({"error": "Portfolio not found"}), 404
-    data = request.get_json(silent=True) or {}
-    decision = data.get("decision")
-    if decision not in services.DECISION_STATUS:
-        return jsonify({"error": "decision must be approve, deny, or revise"}), 400
-    reviewer = auth.current_reviewer()
-    services.record_decision(case_id, reviewer["id"], decision,
-                             (data.get("notes") or "").strip())
-    return jsonify(reviewer_case_detail(case_id).get_json())
-
-
-@app.post("/api/reviewer/cases/<int:case_id>/escalate")
-@auth.require_reviewer
-def reviewer_escalate(case_id):
-    if not services.get_case(case_id):
-        return jsonify({"error": "Portfolio not found"}), 404
-    data = request.get_json(silent=True) or {}
-    etype = (data.get("type") or "").strip()
-    if not etype:
-        return jsonify({"error": "Referral type is required"}), 400
-    services.record_escalation(
-        case_id, etype, (data.get("assignee_name") or "").strip(),
-        (data.get("assignee_email") or "").strip(), (data.get("notes") or "").strip())
-    return jsonify(reviewer_case_detail(case_id).get_json())
-
-
-@app.get("/reviewer/settings")
-def reviewer_settings_page():
-    if not auth.is_authenticated():
-        return redirect("/reviewer/login")
-    return render_template("reviewer_settings.html",
-                           reviewer_name=auth.current_reviewer().get("name", "Reviewer"))
-
-
-@app.get("/api/public-settings")
-def public_settings():
-    """Minimal settings the applicant UI needs (institution name, thresholds)."""
-    s = services.get_settings()
-    return jsonify({
-        "institution_name": s.get("institution_name"),
-        "submit_threshold": s.get("submit_threshold"),
-        "draft_threshold": s.get("draft_threshold"),
-        "delete_below_threshold": s.get("delete_below_threshold"),
-    })
-
-
-@app.get("/api/settings")
-@auth.require_reviewer
-def get_settings_api():
-    return jsonify({
-        "settings": services.get_settings(),
-        "routing_rules": services.get_routing_rules(),
-        "catalog": services.list_catalog(),
-    })
-
-
-@app.put("/api/settings")
-@auth.require_reviewer
-def update_settings_api():
-    data = request.get_json(silent=True) or {}
-    fields = {}
-    for k in ["institution_name", "system_prompt_addendum"]:
-        if k in data:
-            fields[k] = data[k]
-    for k in ["draft_threshold", "submit_threshold", "delete_below_threshold"]:
-        if k in data:
-            try:
-                fields[k] = max(0, min(100, int(data[k])))
-            except (TypeError, ValueError):
-                pass
-    for k in ["strict_domain", "require_evidence_links"]:
-        if k in data:
-            fields[k] = 1 if data[k] else 0
-    services.update_settings(fields)
-    return jsonify({"settings": services.get_settings()})
-
-
-@app.post("/api/routing-rules")
-@auth.require_reviewer
-def add_routing_rule_api():
-    d = request.get_json(silent=True) or {}
-    if not d.get("condition_value") or not d.get("action_value"):
-        return jsonify({"error": "condition and action values are required"}), 400
-    services.add_routing_rule(
-        d.get("condition_type", "course_matches"), d.get("condition_value"),
-        d.get("action_type", "assign"), d.get("action_value"))
-    return jsonify({"routing_rules": services.get_routing_rules()})
-
-
-@app.delete("/api/routing-rules/<int:rule_id>")
-@auth.require_reviewer
-def delete_routing_rule_api(rule_id):
-    services.delete_routing_rule(rule_id)
-    return jsonify({"routing_rules": services.get_routing_rules()})
-
-
-@app.post("/api/catalog")
-@auth.require_reviewer
-def add_catalog_api():
-    d = request.get_json(silent=True) or {}
-    if not d.get("title"):
-        return jsonify({"error": "Title is required"}), 400
-    services.add_catalog(d.get("type", "course"), d.get("code", ""),
-                         d.get("title"), d.get("content", ""))
-    return jsonify({"catalog": services.list_catalog()})
-
-
-@app.put("/api/catalog/<int:entry_id>")
-@auth.require_reviewer
-def update_catalog_api(entry_id):
-    services.update_catalog(entry_id, request.get_json(silent=True) or {})
-    return jsonify({"catalog": services.list_catalog()})
-
-
-@app.delete("/api/catalog/<int:entry_id>")
-@auth.require_reviewer
-def delete_catalog_api(entry_id):
-    services.delete_catalog(entry_id)
-    return jsonify({"catalog": services.list_catalog()})
-
-
-@app.get("/api/reviewer/me")
-def reviewer_me():
-    r = auth.current_reviewer()
-    counts = services.queue_counts() if r else {}
-    return jsonify({"authenticated": bool(r), "reviewer": r, "counts": counts})
 
 
 # ===============================
